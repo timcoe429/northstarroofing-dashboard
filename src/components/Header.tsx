@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import { Icons } from './Icons';
 
 interface HeaderProps {
@@ -9,6 +10,14 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ timeRange, onTimeRangeChange }) => {
+  const router = useRouter();
+
+  const handleSignOut = () => {
+    // TODO: Replace with Supabase Auth - remove hardcoded credentials
+    sessionStorage.removeItem('isLoggedIn');
+    router.push('/login');
+  };
+
   return (
     <header style={{ 
       background: 'white', 
@@ -58,6 +67,20 @@ export const Header: React.FC<HeaderProps> = ({ timeRange, onTimeRangeChange }) 
           justifyContent: 'center' 
         }}>
           <Icons.Bell />
+        </button>
+        <button
+          onClick={handleSignOut}
+          style={{
+            background: 'white',
+            border: '1px solid #e2e8f0',
+            borderRadius: 8,
+            padding: '6px 10px',
+            fontSize: 11,
+            color: '#00293f',
+            cursor: 'pointer'
+          }}
+        >
+          Sign Out
         </button>
         {/* Avatar */}
         <div style={{ 
