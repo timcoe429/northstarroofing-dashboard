@@ -3,8 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import { Sidebar } from '@/components/Sidebar';
 import { Header } from '@/components/Header';
-import { mockData } from '@/lib/mockData';
-import { formatCurrency } from '@/lib/utils';
+import { mockData, formatCurrency } from '@/lib/utils';
 
 const filterTabs = ['All', 'In Progress', 'Scheduled', 'Completed'] as const;
 

@@ -3,8 +3,7 @@
 import React, { useState } from 'react';
 import { Sidebar } from '@/components/Sidebar';
 import { Header } from '@/components/Header';
-import { mockData } from '@/lib/mockData';
-import { formatCurrency } from '@/lib/utils';
+import { mockData, formatCurrency } from '@/lib/utils';
 
 export default function FinancesPage() {
   const [timeRange, setTimeRange] = useState('6mo');
