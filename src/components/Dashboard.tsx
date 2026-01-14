@@ -17,7 +17,6 @@ import { AvgJobSizeContent } from './modals/AvgJobSize';
 import { mockData, formatCurrency } from '@/lib/utils';
 
 export default function NorthstarDashboard() {
-  const [activeNav, setActiveNav] = useState('dashboard');
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState('6mo');
 
@@ -38,7 +37,7 @@ export default function NorthstarDashboard() {
       </Modal>
 
       {/* Sidebar */}
-      <Sidebar activeNav={activeNav} onNavChange={setActiveNav} />
+      <Sidebar />
 
       {/* Main Content */}
       <main style={{ flex: 1, marginLeft: 220 }}>

@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Icons } from './Icons';
 import { NorthstarLogo } from './NorthstarLogo';
 
@@ -8,23 +10,21 @@ interface NavItem {
   id: string;
   label: string;
   icon: React.FC;
-}
-
-interface SidebarProps {
-  activeNav: string;
-  onNavChange: (id: string) => void;
+  href: string;
 }
 
 const navItems: NavItem[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: Icons.Dashboard },
-  { id: 'projects', label: 'Projects', icon: Icons.Projects },
-  { id: 'estimates', label: 'Estimates', icon: Icons.Estimates },
-  { id: 'customers', label: 'Customers', icon: Icons.Customers },
-  { id: 'finances', label: 'Finances', icon: Icons.Finances },
-  { id: 'reports', label: 'Reports', icon: Icons.Reports },
+  { id: 'dashboard', label: 'Dashboard', icon: Icons.Dashboard, href: '/' },
+  { id: 'projects', label: 'Projects', icon: Icons.Projects, href: '/projects' },
+  { id: 'estimates', label: 'Estimates', icon: Icons.Estimates, href: '/estimates' },
+  { id: 'customers', label: 'Customers', icon: Icons.Customers, href: '/customers' },
+  { id: 'finances', label: 'Finances', icon: Icons.Finances, href: '/finances' },
+  { id: 'reports', label: 'Reports', icon: Icons.Reports, href: '/reports' },
 ];
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeNav, onNavChange }) => {
+export const Sidebar: React.FC = () => {
+  const pathname = usePathname();
+
   return (
     <aside style={{ 
       width: 220, 
@@ -42,56 +42,59 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeNav, onNavChange }) => {
       
       {/* Navigation */}
       <nav style={{ flex: 1, padding: '16px 12px' }}>
-        {navItems.map(item => (
-          <button
-            key={item.id}
-            onClick={() => onNavChange(item.id)}
-            style={{
-              width: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 12,
-              padding: '12px 14px',
-              marginBottom: 4,
-              background: activeNav === item.id ? 'rgba(255,255,255,0.1)' : 'transparent',
-              border: 'none',
-              borderRadius: 8,
-              color: activeNav === item.id ? 'white' : 'rgba(255,255,255,0.6)',
-              fontSize: 13,
-              fontWeight: activeNav === item.id ? 600 : 400,
-              cursor: 'pointer',
-              transition: 'all 0.15s',
-              textAlign: 'left'
-            }}
-          >
-            <item.icon />
-            {item.label}
-          </button>
-        ))}
+        {navItems.map(item => {
+          const isActive = pathname === item.href;
+          return (
+            <Link
+              key={item.id}
+              href={item.href}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                padding: '12px 14px',
+                marginBottom: 4,
+                background: isActive ? 'rgba(255,255,255,0.1)' : 'transparent',
+                borderRadius: 8,
+                color: isActive ? 'white' : 'rgba(255,255,255,0.6)',
+                fontSize: 13,
+                fontWeight: isActive ? 600 : 400,
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+                textDecoration: 'none',
+                textAlign: 'left'
+              }}
+            >
+              <item.icon />
+              {item.label}
+            </Link>
+          );
+        })}
       </nav>
       
       {/* Settings at bottom */}
       <div style={{ padding: '16px 12px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-        <button 
-          onClick={() => onNavChange('settings')}
-          style={{ 
-            width: '100%', 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: 12, 
-            padding: '12px 14px', 
-            background: activeNav === 'settings' ? 'rgba(255,255,255,0.1)' : 'transparent', 
-            border: 'none', 
-            borderRadius: 8, 
-            color: activeNav === 'settings' ? 'white' : 'rgba(255,255,255,0.6)', 
-            fontSize: 13, 
-            cursor: 'pointer', 
-            textAlign: 'left' 
+        <Link
+          href="/settings"
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            padding: '12px 14px',
+            background: pathname === '/settings' ? 'rgba(255,255,255,0.1)' : 'transparent',
+            borderRadius: 8,
+            color: pathname === '/settings' ? 'white' : 'rgba(255,255,255,0.6)',
+            fontSize: 13,
+            cursor: 'pointer',
+            textAlign: 'left',
+            textDecoration: 'none'
           }}
         >
           <Icons.Settings />
           Settings
-        </button>
+        </Link>
       </div>
     </aside>
   );
