@@ -3,7 +3,8 @@
 import React, { useMemo, useState } from 'react';
 import { Sidebar } from '@/components/Sidebar';
 import { Header } from '@/components/Header';
-import { mockData, formatCurrency } from '@/lib/utils';
+import { mockData } from '@/lib/mockData';
+import { formatCurrency } from '@/lib/utils';
 
 export default function EstimatesPage() {
   const [timeRange, setTimeRange] = useState('6mo');

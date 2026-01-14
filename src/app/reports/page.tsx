@@ -5,7 +5,8 @@ import { Sidebar } from '@/components/Sidebar';
 import { Header } from '@/components/Header';
 import { RevenueChart } from '@/components/RevenueChart';
 import { JobTypesCard } from '@/components/JobTypesCard';
-import { mockData, formatCurrency } from '@/lib/utils';
+import { mockData } from '@/lib/mockData';
+import { formatCurrency } from '@/lib/utils';
 
 export default function ReportsPage() {
   const [timeRange, setTimeRange] = useState('6mo');

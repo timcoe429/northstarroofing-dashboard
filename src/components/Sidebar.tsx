@@ -36,7 +36,7 @@ export const Sidebar: React.FC = () => {
       zIndex: 100 
     }}>
       {/* Logo */}
-      <div style={{ padding: '20px 16px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+      <div style={{ padding: '16px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
         <NorthstarLogo />
       </div>
       
