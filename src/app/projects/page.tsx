@@ -1,4 +1,4 @@
-\"use client\";
+'use client';
 
 import React, { useMemo, useState } from 'react';
 import { Sidebar } from '@/components/Sidebar';
@@ -18,7 +18,7 @@ export default function ProjectsPage() {
         ...project,
         customer: customerMatch?.name || project.name,
         address: customerMatch?.address || project.location,
-        startDate: (project as { startDate?: string }).startDate || project.date,
+        startDate: 'startDate' in project ? project.startDate : project.date,
       };
     });
 
@@ -82,7 +82,7 @@ export default function ProjectsPage() {
                       <td style={{ padding: '10px 12px', color: '#334155' }}>{project.address}</td>
                       <td style={{ padding: '10px 12px', color: '#334155' }}>{project.type}</td>
                       <td style={{ padding: '10px 12px', color: '#334155' }}>{project.status}</td>
-                      <td style={{ padding: '10px 12px', color: '#334155' }}>{project.crew || 'Unassigned'}</td>
+                      <td style={{ padding: '10px 12px', color: '#334155' }}>{'crew' in project ? project.crew : 'Unassigned'}</td>
                       <td style={{ padding: '10px 12px', color: '#334155' }}>{formatCurrency(project.value)}</td>
                       <td style={{ padding: '10px 12px', color: '#334155' }}>{project.startDate}</td>
                     </tr>

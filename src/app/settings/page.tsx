@@ -58,7 +58,6 @@ const apiConnections: APIConnection[] = [
 ];
 
 export default function SettingsPage() {
-  const [activeNav, setActiveNav] = useState('settings');
   const [connections, setConnections] = useState(apiConnections);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [formData, setFormData] = useState<Record<string, Record<string, string>>>({});
@@ -111,7 +110,7 @@ export default function SettingsPage() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f1f5f9', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
-      <Sidebar activeNav={activeNav} onNavChange={setActiveNav} />
+      <Sidebar />
 
       <main style={{ flex: 1, marginLeft: 220 }}>
         {/* Header */}
