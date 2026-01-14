@@ -14,7 +14,7 @@ export const LoginForm: React.FC = () => {
     setError('');
 
     // TODO: Replace with Supabase Auth - remove hardcoded credentials
-    if (email === 'test' && password === 'test123') {
+    if (email === 'omiah@northstarroof.com' && password === 'test123') {
       sessionStorage.setItem('isLoggedIn', 'true');
       router.push('/');
       return;
