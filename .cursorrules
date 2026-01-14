@@ -1,0 +1,37 @@
+# Project: Northstar Roofing Dashboard
+
+## Overview
+- Project type: Next.js 14 + Supabase business dashboard
+- Brand: Northstar Roofing (Roaring Fork Valley)
+- Integrations: Trello, QuickBooks Online, Estimator App
+- Status: Mock data in use; APIs are scaffolded but not connected
+
+## Mandatory Local Checks (Before Push)
+- Always run `npm run dev` to test changes locally before running `npm run build` and pushing to GitHub.
+- Always run `npm run dev` and `npm run build` locally before pushing.
+
+## File Structure Reference
+- `src/app/` app router pages/layouts
+- `src/components/` dashboard UI components
+- `src/lib/api/` integration services
+- `src/lib/supabase/` Supabase clients
+- `src/types/` shared domain types
+- `docs/` project documentation
+
+## Key Files
+- `src/app/layout.tsx` root layout + metadata
+- `src/app/page.tsx` main dashboard route
+- `src/components/Dashboard.tsx` core dashboard view
+- `src/lib/utils.ts` mock data + helpers
+- `src/lib/api/trello.ts` Trello integration service
+- `src/lib/api/quickbooks.ts` QuickBooks integration service
+- `src/lib/api/estimator.ts` Estimator integration service
+- `src/lib/supabase/client.ts` browser Supabase client
+- `src/lib/supabase/server.ts` server Supabase client
+- `src/types/index.ts` domain types
+
+## Coding Standards
+- TypeScript only; keep types in `src/types/`.
+- Use inline styles (current UI pattern) unless refactoring styles as a task.
+- Add `'use client'` at the top of client components.
+- Prefer small, composable components over monoliths.
