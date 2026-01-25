@@ -1,3 +1,5 @@
+# Do NOT ignore /ai folder - we want this in version control
+
 # Dependencies
 /node_modules
 /.pnp
