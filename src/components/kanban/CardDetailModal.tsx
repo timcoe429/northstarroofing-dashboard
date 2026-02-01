@@ -469,6 +469,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
           display: 'flex',
           flexDirection: 'column',
           boxShadow: '0 25px 50px rgba(0,0,0,0.25)',
+          boxSizing: 'border-box',
         }}
       >
         {/* Header */}
@@ -957,7 +958,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
           </div>
 
           {/* Right Sidebar (40%) */}
-          <div style={{ flex: '0 0 40%', display: 'flex', flexDirection: 'column', gap: 32 }}>
+          <div style={{ flex: '0 0 40%', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 32, boxSizing: 'border-box' }}>
             {/* Activity */}
             <ActivityFeed
               activities={activities}

@@ -111,7 +111,7 @@ export const EditableField: React.FC<EditableFieldProps> = ({
   };
 
   const renderInput = () => {
-    const commonStyle = {
+    const commonStyle: React.CSSProperties = {
       width: '100%',
       padding: '12px 16px',
       borderRadius: 6,
@@ -120,6 +120,7 @@ export const EditableField: React.FC<EditableFieldProps> = ({
       fontFamily: 'inherit',
       background: isEditing ? '#ffffff' : '#fafbfc',
       transition: 'all 0.15s',
+      boxSizing: 'border-box',
       ...(isEditing && {
         border: '2px solid #0079bf',
         boxShadow: '0 0 0 2px rgba(0,121,191,0.2)',

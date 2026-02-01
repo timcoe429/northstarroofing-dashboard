@@ -58,6 +58,7 @@ export const CommentInput: React.FC<CommentInputProps> = ({
           minHeight: 60,
           background: '#ffffff',
           transition: 'all 0.15s',
+          boxSizing: 'border-box',
         }}
         onFocus={(e) => {
           e.currentTarget.style.borderColor = '#0079bf';

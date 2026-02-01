@@ -93,6 +93,7 @@ export const EditableTitle: React.FC<EditableTitleProps> = ({
               background: '#ffffff',
               boxShadow: '0 0 0 2px rgba(0,121,191,0.2)',
               minHeight: 32,
+              boxSizing: 'border-box',
             }}
           />
           <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
