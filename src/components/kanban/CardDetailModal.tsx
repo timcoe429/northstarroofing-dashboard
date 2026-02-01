@@ -461,9 +461,9 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
         onClick={(e) => e.stopPropagation()}
         style={{
           background: '#ffffff',
-          borderRadius: 8,
+          borderRadius: 12,
           width: '100%',
-          maxWidth: 900,
+          maxWidth: 1080,
           maxHeight: '90vh',
           overflow: 'hidden',
           display: 'flex',
@@ -559,16 +559,24 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
 
         {/* Content */}
         <div style={{
-          flex: 1,
-          overflowY: 'auto',
-          overflowX: 'hidden',
           display: 'flex',
-          gap: 32,
-          padding: 32,
-          boxSizing: 'border-box',
+          flex: 1,
+          overflow: 'hidden',
         }}>
           {/* Left Side */}
-          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 32, boxSizing: 'border-box' }}>
+          <div style={{
+            flexBasis: 460,
+            flexGrow: 1,
+            flexShrink: 1,
+            minWidth: 0,
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            padding: '24px 24px 32px 24px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 32,
+            boxSizing: 'border-box',
+          }}>
             {/* Labels */}
             <div>
               <h3 style={{
@@ -960,7 +968,19 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
           </div>
 
           {/* Right Sidebar */}
-          <div style={{ width: 300, flexShrink: 0, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 32, boxSizing: 'border-box' }}>
+          <div style={{
+            width: 460,
+            flexShrink: 0,
+            minWidth: 460,
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            padding: '24px 24px 32px 24px',
+            borderLeft: '1px solid #091e4224',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 32,
+            boxSizing: 'border-box',
+          }}>
             {/* Activity */}
             <ActivityFeed
               activities={activities}
