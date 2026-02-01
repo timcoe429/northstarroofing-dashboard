@@ -166,19 +166,49 @@ export const Board: React.FC<BoardProps> = ({ columns, onCardClick, onAddCard, o
 
   // Panning handlers
   const handleMouseDown = (e: React.MouseEvent) => {
-    // Don't start panning if a card is being dragged
-    if (activeCard) return;
-    
     const target = e.target as HTMLElement;
     
-    // Check if clicking on interactive elements (buttons, links, inputs, etc.)
-    if (target.closest('button, a, input, select, textarea, [role="button"]')) {
+    // Diagnostic logging
+    const isOnCard = !!(target.closest('[style*="background: white"]') && target.closest('[style*="border-radius: 8"]'));
+    const isOnButton = !!target.closest('button');
+    const isOnColumn = target.closest('[style*="background: #f8fafc"]') !== null;
+    const isOnHeader = !!target.closest('h3');
+    const isOnCardsContainer = !!target.closest('[style*="flex: 1"]');
+    
+    console.log('mousedown', { 
+      target: e.target, 
+      targetTag: target.tagName,
+      targetClasses: target.className,
+      isOnCard,
+      isOnButton,
+      isOnColumn,
+      isOnHeader,
+      isOnCardsContainer,
+      activeCard: !!activeCard,
+    });
+    
+    // Don't start panning if a card is being dragged
+    if (activeCard) {
+      console.log('Panning blocked: card is being dragged');
       return;
     }
     
-    // Check if clicking directly on the board wrapper div (background)
-    // This is the most reliable way - if target is the boardRef itself, it's background
-    if (target === boardRef.current && boardRef.current) {
+    // Check if clicking on interactive elements (buttons, links, inputs, etc.)
+    if (isOnButton || target.closest('a, input, select, textarea, [role="button"]')) {
+      console.log('Panning blocked: clicking on interactive element');
+      return;
+    }
+    
+    // Block cards (they have dnd-kit drag handlers)
+    if (isOnCard) {
+      console.log('Panning blocked: clicking on card');
+      return;
+    }
+    
+    // Helper function to find scroll container and start panning
+    const startPanning = () => {
+      if (!boardRef.current) return;
+      
       setIsPanning(true);
       // Find scrollable parent container
       let scrollContainer: HTMLElement | null = boardRef.current.parentElement;
@@ -198,43 +228,37 @@ export const Board: React.FC<BoardProps> = ({ columns, onCardClick, onAddCard, o
         setStartY(e.pageY);
         setScrollLeft(scrollContainer.scrollLeft);
         setScrollTop(scrollContainer.scrollTop);
+        console.log('Panning started', { scrollContainer, scrollLeft: scrollContainer.scrollLeft });
         e.preventDefault();
+      } else {
+        console.log('Panning blocked: no scroll container found');
+        setIsPanning(false);
+      }
+    };
+    
+    // Allow panning on column backgrounds (empty space in columns)
+    // Check if we're clicking on the column div itself or empty space within it
+    const columnElement = target.closest('[style*="background: #f8fafc"]');
+    if (columnElement) {
+      // Check if clicking on column header or cards container - don't pan
+      // But allow panning on the column background itself (empty space)
+      if (!isOnHeader && !isOnCardsContainer) {
+        // Clicking on column background - allow panning
+        console.log('Panning allowed: clicking on column background');
+        startPanning();
+      } else {
+        console.log('Panning blocked: clicking on column header or cards container');
       }
       return;
     }
     
-    // Also allow panning if clicking on empty space (padding area) between columns
-    // Check if target is a direct child of boardRef (which would be columns)
-    // but we're clicking on the padding/background
-    if (boardRef.current && boardRef.current.contains(target)) {
-      // Check if we're NOT clicking on a column or card
-      // Columns have background #f8fafc, cards have background white
-      const isOnColumn = target.closest('[style*="background: #f8fafc"]');
-      const isOnCard = target.closest('[style*="background: white"]') && 
-                       target.closest('[style*="border-radius: 8"]'); // Card has border-radius
-      
-      // If clicking on neither column nor card, allow panning (empty space)
-      if (!isOnColumn && !isOnCard && boardRef.current) {
-        setIsPanning(true);
-        let scrollContainer: HTMLElement | null = boardRef.current.parentElement;
-        
-        while (scrollContainer && scrollContainer !== document.body) {
-          const style = window.getComputedStyle(scrollContainer);
-          if (style.overflowX === 'auto' || style.overflowX === 'scroll' || 
-              style.overflow === 'auto' || style.overflow === 'scroll') {
-            break;
-          }
-          scrollContainer = scrollContainer.parentElement;
-        }
-        
-        if (scrollContainer) {
-          setStartX(e.pageX);
-          setStartY(e.pageY);
-          setScrollLeft(scrollContainer.scrollLeft);
-          setScrollTop(scrollContainer.scrollTop);
-          e.preventDefault();
-        }
-      }
+    // Allow panning on board background (between columns or padding)
+    if (target === boardRef.current || 
+        (boardRef.current && boardRef.current.contains(target))) {
+      console.log('Panning allowed: clicking on board background');
+      startPanning();
+    } else {
+      console.log('Panning blocked: target not on board');
     }
   };
 
