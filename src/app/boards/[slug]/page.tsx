@@ -128,6 +128,8 @@ export default function BoardViewPage() {
             border: '1px solid #e2e8f0',
             padding: 16,
             minHeight: 'calc(100vh - 200px)',
+            overflowX: 'auto',
+            overflowY: 'visible',
           }}>
             <Board
               columns={columns}

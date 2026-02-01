@@ -179,9 +179,11 @@ export const Board: React.FC<BoardProps> = ({ columns, onCardClick, onAddCard, o
       )}
       <div style={{
         display: 'flex',
+        flexWrap: 'nowrap',
         overflowX: 'auto',
         padding: '16px 0',
         minHeight: 'calc(100vh - 120px)',
+        width: '100%',
       }}>
         {localColumns.map(column => (
           <Column
