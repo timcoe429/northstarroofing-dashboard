@@ -6,7 +6,7 @@ import { Icons } from './Icons';
 
 interface HeaderProps {
   timeRange: string;
-  onTimeRangeChange: (range: string) => void;
+  onTimeRangeChange?: (range: string) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({ timeRange, onTimeRangeChange }) => {
@@ -38,7 +38,8 @@ export const Header: React.FC<HeaderProps> = ({ timeRange, onTimeRangeChange }) 
         {/* Time Range Dropdown */}
         <select
           value={timeRange}
-          onChange={(e) => onTimeRangeChange(e.target.value)}
+          onChange={(e) => onTimeRangeChange?.(e.target.value)}
+          disabled={!onTimeRangeChange}
           style={{ 
             background: '#f8fafc', 
             border: '1px solid #e2e8f0', 
@@ -46,7 +47,8 @@ export const Header: React.FC<HeaderProps> = ({ timeRange, onTimeRangeChange }) 
             padding: '8px 12px', 
             color: '#334155', 
             fontSize: 12, 
-            cursor: 'pointer' 
+            cursor: onTimeRangeChange ? 'pointer' : 'default',
+            opacity: onTimeRangeChange ? 1 : 0.6
           }}
         >
           <option value="1mo">Last Month</option>

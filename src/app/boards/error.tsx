@@ -14,7 +14,7 @@ export default function BoardsError({ error, reset }: ErrorProps) {
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f1f5f9', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
       <Sidebar />
       <main style={{ flex: 1, marginLeft: 220 }}>
-        <Header timeRange="6mo" onTimeRangeChange={() => {}} />
+        <Header timeRange="6mo" />
         <div style={{ padding: 24 }}>
           <div style={{
             background: '#fef2f2',

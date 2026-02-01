@@ -4,6 +4,8 @@ import { Sidebar } from '@/components/Sidebar';
 import { Header } from '@/components/Header';
 import { createClient } from '@/lib/supabase/server';
 
+export const dynamic = 'force-dynamic';
+
 export default async function BoardsPage() {
   let boardsWithStats: Array<{
     id: string;
@@ -62,7 +64,7 @@ export default async function BoardsPage() {
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f1f5f9', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
       <Sidebar />
       <main style={{ flex: 1, marginLeft: 220 }}>
-        <Header timeRange="6mo" onTimeRangeChange={() => {}} />
+        <Header timeRange="6mo" />
         <div style={{ padding: 24 }}>
           <div style={{ marginBottom: 24 }}>
             <h1 style={{ margin: '0 0 8px 0', fontSize: 28, fontWeight: 600, color: '#00293f' }}>
