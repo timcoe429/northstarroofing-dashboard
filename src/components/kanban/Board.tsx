@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   DndContext,
   DragEndEvent,
@@ -27,6 +27,16 @@ export const Board: React.FC<BoardProps> = ({ columns, onCardClick, onAddCard, o
   const [activeCard, setActiveCard] = useState<CardWithLabels | null>(null);
   const [localColumns, setLocalColumns] = useState<ColumnWithCards[]>(columns);
   const [error, setError] = useState<string | null>(null);
+  
+  // Panning state
+  const [isPanning, setIsPanning] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [startY, setStartY] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
+  const [scrollTop, setScrollTop] = useState(0);
+  
+  // Ref for columns wrapper div
+  const boardRef = useRef<HTMLDivElement>(null);
 
   // Sync local state when columns prop changes (e.g., after adding a card)
   useEffect(() => {
@@ -154,6 +164,114 @@ export const Board: React.FC<BoardProps> = ({ columns, onCardClick, onAddCard, o
     return null;
   };
 
+  // Panning handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    // Don't start panning if a card is being dragged
+    if (activeCard) return;
+    
+    const target = e.target as HTMLElement;
+    
+    // Check if clicking on interactive elements (buttons, links, inputs, etc.)
+    if (target.closest('button, a, input, select, textarea, [role="button"]')) {
+      return;
+    }
+    
+    // Check if clicking directly on the board wrapper div (background)
+    // This is the most reliable way - if target is the boardRef itself, it's background
+    if (target === boardRef.current && boardRef.current) {
+      setIsPanning(true);
+      // Find scrollable parent container
+      let scrollContainer: HTMLElement | null = boardRef.current.parentElement;
+      
+      // Traverse up to find the element with overflow-x: auto
+      while (scrollContainer && scrollContainer !== document.body) {
+        const style = window.getComputedStyle(scrollContainer);
+        if (style.overflowX === 'auto' || style.overflowX === 'scroll' || 
+            style.overflow === 'auto' || style.overflow === 'scroll') {
+          break;
+        }
+        scrollContainer = scrollContainer.parentElement;
+      }
+      
+      if (scrollContainer) {
+        setStartX(e.pageX);
+        setStartY(e.pageY);
+        setScrollLeft(scrollContainer.scrollLeft);
+        setScrollTop(scrollContainer.scrollTop);
+        e.preventDefault();
+      }
+      return;
+    }
+    
+    // Also allow panning if clicking on empty space (padding area) between columns
+    // Check if target is a direct child of boardRef (which would be columns)
+    // but we're clicking on the padding/background
+    if (boardRef.current && boardRef.current.contains(target)) {
+      // Check if we're NOT clicking on a column or card
+      // Columns have background #f8fafc, cards have background white
+      const isOnColumn = target.closest('[style*="background: #f8fafc"]');
+      const isOnCard = target.closest('[style*="background: white"]') && 
+                       target.closest('[style*="border-radius: 8"]'); // Card has border-radius
+      
+      // If clicking on neither column nor card, allow panning (empty space)
+      if (!isOnColumn && !isOnCard && boardRef.current) {
+        setIsPanning(true);
+        let scrollContainer: HTMLElement | null = boardRef.current.parentElement;
+        
+        while (scrollContainer && scrollContainer !== document.body) {
+          const style = window.getComputedStyle(scrollContainer);
+          if (style.overflowX === 'auto' || style.overflowX === 'scroll' || 
+              style.overflow === 'auto' || style.overflow === 'scroll') {
+            break;
+          }
+          scrollContainer = scrollContainer.parentElement;
+        }
+        
+        if (scrollContainer) {
+          setStartX(e.pageX);
+          setStartY(e.pageY);
+          setScrollLeft(scrollContainer.scrollLeft);
+          setScrollTop(scrollContainer.scrollTop);
+          e.preventDefault();
+        }
+      }
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isPanning || !boardRef.current) return;
+    
+    e.preventDefault();
+    
+    // Find scrollable parent container
+    let scrollContainer: HTMLElement | null = boardRef.current.parentElement;
+    while (scrollContainer && scrollContainer !== document.body) {
+      const style = window.getComputedStyle(scrollContainer);
+      if (style.overflowX === 'auto' || style.overflowX === 'scroll' || 
+          style.overflow === 'auto' || style.overflow === 'scroll') {
+        break;
+      }
+      scrollContainer = scrollContainer.parentElement;
+    }
+    
+    if (scrollContainer) {
+      const x = e.pageX;
+      const y = e.pageY;
+      const walkX = (x - startX) * 1.5; // Multiply for faster scroll
+      const walkY = (y - startY) * 1.5;
+      scrollContainer.scrollLeft = scrollLeft - walkX;
+      scrollContainer.scrollTop = scrollTop - walkY;
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsPanning(false);
+  };
+
+  const handleMouseLeave = () => {
+    setIsPanning(false);
+  };
+
   return (
     <DndContext
       sensors={sensors}
@@ -177,14 +295,23 @@ export const Board: React.FC<BoardProps> = ({ columns, onCardClick, onAddCard, o
           <p style={{ margin: 0, fontSize: 13, color: '#991b1b' }}>{error}</p>
         </div>
       )}
-      <div style={{
-        display: 'flex',
-        flexWrap: 'nowrap',
-        padding: '16px 0',
-        minHeight: 'calc(100vh - 120px)',
-        width: 'max-content',
-        minWidth: `${localColumns.length * 296}px`, // 280px column + 16px margin
-      }}>
+      <div 
+        ref={boardRef}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
+        style={{
+          display: 'flex',
+          flexWrap: 'nowrap',
+          padding: '16px 0',
+          minHeight: 'calc(100vh - 120px)',
+          width: 'max-content',
+          minWidth: `${localColumns.length * 296}px`, // 280px column + 16px margin
+          cursor: isPanning ? 'grabbing' : 'grab',
+          userSelect: 'none', // Prevent text selection while panning
+        }}
+      >
         {localColumns.map(column => (
           <Column
             key={column.id}
