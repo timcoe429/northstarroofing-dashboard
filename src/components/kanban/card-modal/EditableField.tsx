@@ -96,28 +96,46 @@ export const EditableField: React.FC<EditableFieldProps> = ({
     }
   };
 
+  const handleInputMouseEnter = (e: React.MouseEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    if (!isEditing) {
+      e.currentTarget.style.borderColor = '#c1c7d0';
+      e.currentTarget.style.background = '#f4f5f7';
+    }
+  };
+
+  const handleInputMouseLeave = (e: React.MouseEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    if (!isEditing) {
+      e.currentTarget.style.borderColor = '#dfe1e6';
+      e.currentTarget.style.background = '#fafbfc';
+    }
+  };
+
   const renderInput = () => {
+    const commonStyle = {
+      width: '100%',
+      padding: '12px 16px',
+      borderRadius: 6,
+      border: '1px solid #dfe1e6',
+      fontSize: 14,
+      fontFamily: 'inherit',
+      background: isEditing ? '#ffffff' : '#fafbfc',
+      transition: 'all 0.15s',
+      ...(isEditing && {
+        border: '2px solid #0079bf',
+        boxShadow: '0 0 0 2px rgba(0,121,191,0.2)',
+      }),
+    };
+
     const commonProps = {
       ref: inputRef as any,
       value: type === 'currency' ? displayValue.replace('$', '').replace(/,/g, '') : displayValue,
       onChange: handleChange,
       onBlur: handleBlur,
       onKeyDown: handleKeyDown,
+      onMouseEnter: handleInputMouseEnter,
+      onMouseLeave: handleInputMouseLeave,
       placeholder,
-      style: {
-        width: '100%',
-        padding: '8px 12px',
-        borderRadius: 4,
-        border: '1px solid #dfe1e6',
-        fontSize: 14,
-        fontFamily: 'inherit',
-        background: isEditing ? '#ffffff' : '#fafbfc',
-        transition: 'all 0.15s',
-        ...(isEditing && {
-          borderColor: '#0079bf',
-          boxShadow: '0 0 0 2px rgba(0,121,191,0.2)',
-        }),
-      },
+      style: commonStyle,
     };
 
     if (type === 'textarea') {
@@ -126,7 +144,7 @@ export const EditableField: React.FC<EditableFieldProps> = ({
           {...commonProps}
           rows={rows}
           style={{
-            ...commonProps.style,
+            ...commonStyle,
             minHeight: 80,
             resize: 'vertical',
           }}
@@ -138,13 +156,12 @@ export const EditableField: React.FC<EditableFieldProps> = ({
       <input
         {...commonProps}
         type={type === 'currency' ? 'text' : type}
-        style={commonProps.style}
       />
     );
   };
 
   return (
-    <div style={{ marginBottom: 12 }}>
+    <div style={{ marginBottom: 16 }}>
       {label && (
         <label style={{
           display: 'block',
@@ -173,9 +190,9 @@ export const EditableField: React.FC<EditableFieldProps> = ({
         <div
           onClick={handleClick}
           style={{
-            padding: '8px 12px',
-            borderRadius: 4,
-            border: '1px solid transparent',
+            padding: '12px 16px',
+            borderRadius: 6,
+            border: '1px solid #dfe1e6',
             fontSize: 14,
             color: displayValue ? '#172b4d' : '#5e6c84',
             cursor: 'text',
@@ -185,11 +202,11 @@ export const EditableField: React.FC<EditableFieldProps> = ({
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.background = '#f4f5f7';
-            e.currentTarget.style.borderColor = '#dfe1e6';
+            e.currentTarget.style.borderColor = '#c1c7d0';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.background = '#fafbfc';
-            e.currentTarget.style.borderColor = 'transparent';
+            e.currentTarget.style.borderColor = '#dfe1e6';
           }}
         >
           {displayValue || placeholder || 'Click to edit...'}

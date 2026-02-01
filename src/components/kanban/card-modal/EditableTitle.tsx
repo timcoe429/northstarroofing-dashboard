@@ -81,9 +81,9 @@ export const EditableTitle: React.FC<EditableTitleProps> = ({
             placeholder="Card title"
             style={{
               width: '100%',
-              padding: '4px 8px',
-              borderRadius: 4,
-              border: '1px solid #0079bf',
+              padding: '12px 16px',
+              borderRadius: 6,
+              border: '2px solid #0079bf',
               fontSize: 20,
               fontWeight: 600,
               fontFamily: 'inherit',

@@ -10,7 +10,6 @@ import {
   getCardFiles,
   getCardLabels,
   addComment,
-  copyCard,
   deleteCard,
   moveCard,
 } from '@/lib/supabase/kanban';
@@ -50,7 +49,6 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
   const [showActivity, setShowActivity] = useState(true);
   const [labelPickerAnchor, setLabelPickerAnchor] = useState<HTMLElement | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [showMoveDropdown, setShowMoveDropdown] = useState(false);
   const [showPriorityDropdown, setShowPriorityDropdown] = useState(false);
   const [showDueDatePicker, setShowDueDatePicker] = useState(false);
 
@@ -418,19 +416,6 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
     }
   };
 
-  const handleCopyCard = async () => {
-    if (!card) return;
-    
-    try {
-      await copyCard(card.id);
-      onCardChange(); // Refresh board to show new card
-      alert('Card copied successfully!');
-    } catch (error) {
-      console.error('Error copying card:', error);
-      alert('Failed to copy card. Please try again.');
-    }
-  };
-
   const handleDeleteCard = async () => {
     if (!card) return;
     
@@ -478,7 +463,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
           background: '#ffffff',
           borderRadius: 8,
           width: '100%',
-          maxWidth: 768,
+          maxWidth: 900,
           maxHeight: '90vh',
           overflow: 'hidden',
           display: 'flex',
@@ -488,7 +473,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
       >
         {/* Header */}
         <div style={{
-          padding: '24px 24px 16px',
+          padding: '32px 32px 16px',
           borderBottom: '1px solid #dfe1e6',
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
@@ -500,84 +485,74 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
                 saveState={saveStates.address}
               />
               <div style={{ marginTop: 8, fontSize: 13, color: '#5e6c84' }}>
-                in list{' '}
-                <button
-                  onClick={() => setShowMoveDropdown(!showMoveDropdown)}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#0079bf',
-                    cursor: 'pointer',
-                    textDecoration: 'underline',
-                    padding: 0,
-                    fontSize: 13,
-                  }}
-                >
-                  {currentColumn?.name || 'Unknown'}
-                </button>
-                {showMoveDropdown && (
-                  <div style={{
-                    position: 'absolute',
-                    background: '#ffffff',
-                    border: '1px solid #dfe1e6',
-                    borderRadius: 8,
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                    zIndex: 1001,
-                    marginTop: 4,
-                    minWidth: 200,
-                  }}>
-                    {columns.map(col => (
-                      <button
-                        key={col.id}
-                        onClick={() => {
-                          handleColumnChange(col.id);
-                          setShowMoveDropdown(false);
-                        }}
-                        style={{
-                          width: '100%',
-                          padding: '8px 12px',
-                          border: 'none',
-                          background: col.id === card.column_id ? '#e4f0f6' : 'transparent',
-                          textAlign: 'left',
-                          cursor: 'pointer',
-                          fontSize: 13,
-                          color: '#172b4d',
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = '#f4f5f7';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = col.id === card.column_id ? '#e4f0f6' : 'transparent';
-                        }}
-                      >
-                        {col.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                in list {currentColumn?.name || 'Unknown'}
               </div>
             </div>
-            <button
-              onClick={onClose}
-              style={{
-                background: 'none',
-                border: 'none',
-                fontSize: 24,
-                color: '#5e6c84',
-                cursor: 'pointer',
-                padding: 4,
-                lineHeight: 1,
-                borderRadius: 4,
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = '#f4f5f7';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'transparent';
-              }}
-            >
-              ×
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: 14,
+                  color: '#eb5a46',
+                  cursor: 'pointer',
+                  padding: '6px 12px',
+                  borderRadius: 4,
+                  fontWeight: 500,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#fef2f2';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                }}
+              >
+                Delete
+              </button>
+              {/* Archive button - hidden for now */}
+              {/* <button
+                onClick={() => {}}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: 14,
+                  color: '#5e6c84',
+                  cursor: 'pointer',
+                  padding: '6px 12px',
+                  borderRadius: 4,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#f4f5f7';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                }}
+              >
+                Archive
+              </button> */}
+              <button
+                onClick={onClose}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: 24,
+                  color: '#5e6c84',
+                  cursor: 'pointer',
+                  padding: 4,
+                  lineHeight: 1,
+                  borderRadius: 4,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#f4f5f7';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                }}
+              >
+                ×
+              </button>
+            </div>
           </div>
         </div>
 
@@ -586,18 +561,18 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
           flex: 1,
           overflowY: 'auto',
           display: 'flex',
-          gap: 24,
-          padding: 24,
+          gap: 32,
+          padding: 32,
         }}>
-          {/* Left Side (65%) */}
-          <div style={{ flex: '0 0 65%', display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {/* Left Side (60%) */}
+          <div style={{ flex: '0 0 60%', display: 'flex', flexDirection: 'column', gap: 32 }}>
             {/* Labels */}
             <div>
               <h3 style={{
                 fontSize: 14,
                 fontWeight: 600,
                 color: '#172b4d',
-                marginBottom: 8,
+                marginBottom: 16,
                 marginTop: 0,
                 textTransform: 'uppercase',
                 letterSpacing: 0.5,
@@ -664,6 +639,229 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
               </div>
             </div>
 
+            {/* Add to Card */}
+            <div>
+              <h3 style={{
+                fontSize: 14,
+                fontWeight: 600,
+                color: '#172b4d',
+                marginBottom: 16,
+                marginTop: 0,
+                textTransform: 'uppercase',
+                letterSpacing: 0.5,
+              }}>
+                Add to Card
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <button
+                  onClick={(e) => {
+                    setLabelPickerAnchor(e.currentTarget);
+                    setShowLabelPicker(true);
+                  }}
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: 6,
+                    border: '1px solid #dfe1e6',
+                    background: '#ffffff',
+                    color: '#172b4d',
+                    fontSize: 14,
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#f4f5f7';
+                    e.currentTarget.style.borderColor = '#c1c7d0';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = '#ffffff';
+                    e.currentTarget.style.borderColor = '#dfe1e6';
+                  }}
+                >
+                  <span>🏷️</span>
+                  <span>Labels</span>
+                </button>
+                <button
+                  onClick={() => {
+                    fileUploadTriggerRef.current?.();
+                  }}
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: 6,
+                    border: '1px solid #dfe1e6',
+                    background: '#ffffff',
+                    color: '#172b4d',
+                    fontSize: 14,
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#f4f5f7';
+                    e.currentTarget.style.borderColor = '#c1c7d0';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = '#ffffff';
+                    e.currentTarget.style.borderColor = '#dfe1e6';
+                  }}
+                >
+                  <span>📎</span>
+                  <span>Attachments</span>
+                </button>
+                <div style={{ position: 'relative' }}>
+                  <button
+                    ref={dueDateButtonRef}
+                    onClick={() => setShowDueDatePicker(!showDueDatePicker)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: 6,
+                      border: '1px solid #dfe1e6',
+                      background: '#ffffff',
+                      color: '#172b4d',
+                      fontSize: 14,
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = '#f4f5f7';
+                      e.currentTarget.style.borderColor = '#c1c7d0';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = '#ffffff';
+                      e.currentTarget.style.borderColor = '#dfe1e6';
+                    }}
+                  >
+                    <span>📅</span>
+                    <span>Due Date</span>
+                  </button>
+                  {showDueDatePicker && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      marginTop: 4,
+                      background: '#ffffff',
+                      border: '1px solid #dfe1e6',
+                      borderRadius: 8,
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                      zIndex: 1001,
+                      padding: 8,
+                    }}>
+                      <input
+                        type="date"
+                        value={card.due_date || ''}
+                        onChange={(e) => {
+                          handleDueDateChange(e.target.value || null);
+                          setShowDueDatePicker(false);
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '12px 16px',
+                          border: '1px solid #dfe1e6',
+                          borderRadius: 6,
+                          fontSize: 14,
+                          background: '#fafbfc',
+                        }}
+                        onFocus={(e) => {
+                          e.target.style.borderColor = '#0079bf';
+                          e.target.style.borderWidth = '2px';
+                          e.target.style.background = '#ffffff';
+                          e.target.style.boxShadow = '0 0 0 2px rgba(0,121,191,0.2)';
+                        }}
+                        onBlur={(e) => {
+                          e.target.style.borderColor = '#dfe1e6';
+                          e.target.style.borderWidth = '1px';
+                          e.target.style.background = '#fafbfc';
+                          e.target.style.boxShadow = 'none';
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+                <div style={{ position: 'relative' }}>
+                  <button
+                    ref={priorityButtonRef}
+                    onClick={() => setShowPriorityDropdown(!showPriorityDropdown)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: 6,
+                      border: '1px solid #dfe1e6',
+                      background: '#ffffff',
+                      color: '#172b4d',
+                      fontSize: 14,
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = '#f4f5f7';
+                      e.currentTarget.style.borderColor = '#c1c7d0';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = '#ffffff';
+                      e.currentTarget.style.borderColor = '#dfe1e6';
+                    }}
+                  >
+                    <span>⚡</span>
+                    <span>Priority</span>
+                  </button>
+                  {showPriorityDropdown && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      marginTop: 4,
+                      background: '#ffffff',
+                      border: '1px solid #dfe1e6',
+                      borderRadius: 8,
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                      zIndex: 1001,
+                      minWidth: 150,
+                    }}>
+                      {(['low', 'medium', 'high', 'urgent', null] as const).map(priority => (
+                        <button
+                          key={priority || 'none'}
+                          onClick={() => {
+                            handlePriorityChange(priority);
+                            setShowPriorityDropdown(false);
+                          }}
+                          style={{
+                            width: '100%',
+                            padding: '8px 12px',
+                            border: 'none',
+                            background: card.priority === priority ? '#e4f0f6' : 'transparent',
+                            textAlign: 'left',
+                            cursor: 'pointer',
+                            fontSize: 13,
+                            color: '#172b4d',
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = '#f4f5f7';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = card.priority === priority ? '#e4f0f6' : 'transparent';
+                          }}
+                        >
+                          {priority ? priority.charAt(0).toUpperCase() + priority.slice(1) : 'None'}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
             {/* Description */}
             <EditableField
               label="Description"
@@ -682,14 +880,14 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
                 fontSize: 14,
                 fontWeight: 600,
                 color: '#172b4d',
-                marginBottom: 12,
+                marginBottom: 16,
                 marginTop: 0,
                 textTransform: 'uppercase',
                 letterSpacing: 0.5,
               }}>
                 Client Information
               </h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 <EditableField
                   label="Name"
                   value={clientNameAutoSave.value}
@@ -758,295 +956,8 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
             />
           </div>
 
-          {/* Right Sidebar (35%) */}
-          <div style={{ flex: '0 0 35%', display: 'flex', flexDirection: 'column', gap: 24 }}>
-            {/* Add to Card */}
-            <div>
-              <h3 style={{
-                fontSize: 14,
-                fontWeight: 600,
-                color: '#172b4d',
-                marginBottom: 12,
-                marginTop: 0,
-                textTransform: 'uppercase',
-                letterSpacing: 0.5,
-              }}>
-                Add to Card
-              </h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <button
-                  onClick={(e) => {
-                    setLabelPickerAnchor(e.currentTarget);
-                    setShowLabelPicker(true);
-                  }}
-                  style={{
-                    padding: '8px 12px',
-                    borderRadius: 4,
-                    border: '1px solid #dfe1e6',
-                    background: '#ffffff',
-                    color: '#172b4d',
-                    fontSize: 14,
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = '#f4f5f7';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = '#ffffff';
-                  }}
-                >
-                  <span>🏷️</span>
-                  <span>Labels</span>
-                </button>
-                <button
-                  onClick={() => {
-                    // Scroll to attachments section
-                    const attachmentsSection = modalRef.current?.querySelector('[data-section="attachments"]');
-                    if (attachmentsSection) {
-                      attachmentsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }
-                  }}
-                  style={{
-                    padding: '8px 12px',
-                    borderRadius: 4,
-                    border: '1px solid #dfe1e6',
-                    background: '#ffffff',
-                    color: '#172b4d',
-                    fontSize: 14,
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = '#f4f5f7';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = '#ffffff';
-                  }}
-                >
-                  <span>📎</span>
-                  <span>Attachments</span>
-                </button>
-                <div style={{ position: 'relative' }}>
-                  <button
-                    ref={dueDateButtonRef}
-                    onClick={() => setShowDueDatePicker(!showDueDatePicker)}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      borderRadius: 4,
-                      border: '1px solid #dfe1e6',
-                      background: '#ffffff',
-                      color: '#172b4d',
-                      fontSize: 14,
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = '#f4f5f7';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = '#ffffff';
-                    }}
-                  >
-                    <span>📅</span>
-                    <span>Due Date</span>
-                  </button>
-                  {showDueDatePicker && (
-                    <div style={{
-                      position: 'absolute',
-                      top: '100%',
-                      left: 0,
-                      marginTop: 4,
-                      background: '#ffffff',
-                      border: '1px solid #dfe1e6',
-                      borderRadius: 8,
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                      zIndex: 1001,
-                      padding: 8,
-                    }}>
-                      <input
-                        type="date"
-                        value={card.due_date || ''}
-                        onChange={(e) => {
-                          handleDueDateChange(e.target.value || null);
-                          setShowDueDatePicker(false);
-                        }}
-                        style={{
-                          width: '100%',
-                          padding: '6px',
-                          border: '1px solid #dfe1e6',
-                          borderRadius: 4,
-                          fontSize: 13,
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
-                <div style={{ position: 'relative' }}>
-                  <button
-                    ref={priorityButtonRef}
-                    onClick={() => setShowPriorityDropdown(!showPriorityDropdown)}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      borderRadius: 4,
-                      border: '1px solid #dfe1e6',
-                      background: '#ffffff',
-                      color: '#172b4d',
-                      fontSize: 14,
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = '#f4f5f7';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = '#ffffff';
-                    }}
-                  >
-                    <span>⚡</span>
-                    <span>Priority</span>
-                  </button>
-                  {showPriorityDropdown && (
-                    <div style={{
-                      position: 'absolute',
-                      top: '100%',
-                      left: 0,
-                      marginTop: 4,
-                      background: '#ffffff',
-                      border: '1px solid #dfe1e6',
-                      borderRadius: 8,
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                      zIndex: 1001,
-                      minWidth: 150,
-                    }}>
-                      {(['low', 'medium', 'high', 'urgent', null] as const).map(priority => (
-                        <button
-                          key={priority || 'none'}
-                          onClick={() => {
-                            handlePriorityChange(priority);
-                            setShowPriorityDropdown(false);
-                          }}
-                          style={{
-                            width: '100%',
-                            padding: '8px 12px',
-                            border: 'none',
-                            background: card.priority === priority ? '#e4f0f6' : 'transparent',
-                            textAlign: 'left',
-                            cursor: 'pointer',
-                            fontSize: 13,
-                            color: '#172b4d',
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.background = '#f4f5f7';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.background = card.priority === priority ? '#e4f0f6' : 'transparent';
-                          }}
-                        >
-                          {priority ? priority.charAt(0).toUpperCase() + priority.slice(1) : 'None'}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div>
-              <h3 style={{
-                fontSize: 14,
-                fontWeight: 600,
-                color: '#172b4d',
-                marginBottom: 12,
-                marginTop: 0,
-                textTransform: 'uppercase',
-                letterSpacing: 0.5,
-              }}>
-                Actions
-              </h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <button
-                  ref={moveButtonRef}
-                  onClick={() => setShowMoveDropdown(!showMoveDropdown)}
-                  style={{
-                    padding: '8px 12px',
-                    borderRadius: 4,
-                    border: '1px solid #dfe1e6',
-                    background: '#ffffff',
-                    color: '#172b4d',
-                    fontSize: 14,
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = '#f4f5f7';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = '#ffffff';
-                  }}
-                >
-                  Move
-                </button>
-                <button
-                  onClick={handleCopyCard}
-                  style={{
-                    padding: '8px 12px',
-                    borderRadius: 4,
-                    border: '1px solid #dfe1e6',
-                    background: '#ffffff',
-                    color: '#172b4d',
-                    fontSize: 14,
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = '#f4f5f7';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = '#ffffff';
-                  }}
-                >
-                  Copy
-                </button>
-                <button
-                  onClick={() => setShowDeleteConfirm(true)}
-                  style={{
-                    padding: '8px 12px',
-                    borderRadius: 4,
-                    border: '1px solid #dfe1e6',
-                    background: '#ffffff',
-                    color: '#eb5a46',
-                    fontSize: 14,
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = '#fef2f2';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = '#ffffff';
-                  }}
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-
+          {/* Right Sidebar (40%) */}
+          <div style={{ flex: '0 0 40%', display: 'flex', flexDirection: 'column', gap: 32 }}>
             {/* Activity */}
             <ActivityFeed
               activities={activities}

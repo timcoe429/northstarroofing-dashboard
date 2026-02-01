@@ -59,7 +59,7 @@ export const FinancialFields: React.FC<FinancialFieldsProps> = ({
         fontSize: 14,
         fontWeight: 600,
         color: '#172b4d',
-        marginBottom: 12,
+        marginBottom: 16,
         marginTop: 0,
         textTransform: 'uppercase',
         letterSpacing: 0.5,
@@ -67,7 +67,7 @@ export const FinancialFields: React.FC<FinancialFieldsProps> = ({
         Financial Summary
       </h3>
       
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <EditableField
           label="Quote Amount"
           value={quoteAmount}
