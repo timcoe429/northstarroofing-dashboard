@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { CardFile } from '@/types/kanban';
 import { uploadCardFile, deleteCardFile, getFileUrl } from '@/lib/supabase/kanban';
 
@@ -15,14 +15,15 @@ export const FileAttachments: React.FC<FileAttachmentsProps> = ({
   cardId,
   files,
   onFilesChange,
+  triggerUploadRef,
 }) => {
   const [hoveredFileId, setHoveredFileId] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleUploadClick = () => {
+  const handleUploadClick = useCallback(() => {
     fileInputRef.current?.click();
-  };
+  }, []);
 
   // Expose upload trigger via ref
   useEffect(() => {
@@ -34,7 +35,7 @@ export const FileAttachments: React.FC<FileAttachmentsProps> = ({
         triggerUploadRef.current = null;
       }
     };
-  }, []);
+  }, [handleUploadClick, triggerUploadRef]);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = e.target.files;
@@ -91,11 +92,12 @@ export const FileAttachments: React.FC<FileAttachmentsProps> = ({
     switch (fileType) {
       case 'photo':
         return '🖼️';
-      case 'pdf':
       case 'contract':
         return '📄';
       case 'estimate':
         return '📊';
+      case 'roof_scope':
+        return '🏠';
       default:
         return '📎';
     }

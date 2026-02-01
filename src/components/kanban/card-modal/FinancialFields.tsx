@@ -72,7 +72,7 @@ export const FinancialFields: React.FC<FinancialFieldsProps> = ({
           label="Quote Amount"
           value={quoteAmount}
           type="currency"
-          onChange={onQuoteAmountChange}
+          onChange={(value) => onQuoteAmountChange(typeof value === 'number' ? value : null)}
           onSave={onQuoteAmountSave}
           placeholder="$0.00"
           saveState={saveStates.quote_amount}
@@ -82,7 +82,7 @@ export const FinancialFields: React.FC<FinancialFieldsProps> = ({
           label="Projected Cost"
           value={projectedCost}
           type="currency"
-          onChange={onProjectedCostChange}
+          onChange={(value) => onProjectedCostChange(typeof value === 'number' ? value : null)}
           onSave={onProjectedCostSave}
           placeholder="$0.00"
           saveState={saveStates.projected_cost}
@@ -105,7 +105,7 @@ export const FinancialFields: React.FC<FinancialFieldsProps> = ({
           label="Projected Profit"
           value={projectedProfit}
           type="currency"
-          onChange={onProjectedProfitChange}
+          onChange={(value) => onProjectedProfitChange(typeof value === 'number' ? value : null)}
           onSave={onProjectedProfitSave}
           placeholder="$0.00"
           saveState={saveStates.projected_profit}
@@ -115,7 +115,7 @@ export const FinancialFields: React.FC<FinancialFieldsProps> = ({
           label="Projected Commission"
           value={projectedCommission}
           type="currency"
-          onChange={onProjectedCommissionChange}
+          onChange={(value) => onProjectedCommissionChange(typeof value === 'number' ? value : null)}
           onSave={onProjectedCommissionSave}
           placeholder="$0.00"
           saveState={saveStates.projected_commission}
@@ -125,7 +125,7 @@ export const FinancialFields: React.FC<FinancialFieldsProps> = ({
           label="Projected Office"
           value={projectedOffice}
           type="currency"
-          onChange={onProjectedOfficeChange}
+          onChange={(value) => onProjectedOfficeChange(typeof value === 'number' ? value : null)}
           onSave={onProjectedOfficeSave}
           placeholder="$0.00"
           saveState={saveStates.projected_office}

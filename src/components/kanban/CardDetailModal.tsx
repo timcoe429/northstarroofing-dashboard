@@ -694,7 +694,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
                   label="Name"
                   value={clientNameAutoSave.value}
                   type="text"
-                  onChange={clientNameAutoSave.setValue}
+                  onChange={(value) => clientNameAutoSave.setValue(typeof value === 'string' ? value : (value?.toString() || ''))}
                   onSave={clientNameAutoSave.saveNow}
                   placeholder="Client name"
                   saveState={saveStates.client_name}
@@ -703,7 +703,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
                   label="Phone"
                   value={clientPhoneAutoSave.value}
                   type="tel"
-                  onChange={clientPhoneAutoSave.setValue}
+                  onChange={(value) => clientPhoneAutoSave.setValue(typeof value === 'string' ? value : (value?.toString() || ''))}
                   onSave={clientPhoneAutoSave.saveNow}
                   placeholder="Phone number"
                   saveState={saveStates.client_phone}
@@ -712,7 +712,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
                   label="Email"
                   value={clientEmailAutoSave.value}
                   type="email"
-                  onChange={clientEmailAutoSave.setValue}
+                  onChange={(value) => clientEmailAutoSave.setValue(typeof value === 'string' ? value : (value?.toString() || ''))}
                   onSave={clientEmailAutoSave.saveNow}
                   placeholder="Email address"
                   saveState={saveStates.client_email}
@@ -721,7 +721,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
                   label="Property Manager"
                   value={propertyManagerAutoSave.value}
                   type="text"
-                  onChange={propertyManagerAutoSave.setValue}
+                  onChange={(value) => propertyManagerAutoSave.setValue(typeof value === 'string' ? value : (value?.toString() || ''))}
                   onSave={propertyManagerAutoSave.saveNow}
                   placeholder="Property manager"
                   saveState={saveStates.property_manager}
