@@ -336,6 +336,90 @@ export async function deleteCard(cardId: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function copyCard(cardId: string, targetColumnId?: string): Promise<CardWithLabels> {
+  // Get original card
+  const originalCard = await getCardById(cardId);
+  if (!originalCard) throw new Error('Card not found');
+
+  // Get target column (use original column if not specified)
+  const columnId = targetColumnId || originalCard.column_id;
+  
+  // Get max position in target column
+  const { data: existingCards } = await supabase
+    .from('cards')
+    .select('position')
+    .eq('column_id', columnId)
+    .order('position', { ascending: false })
+    .limit(1);
+
+  const maxPosition = existingCards && existingCards.length > 0 
+    ? existingCards[0].position + 1 
+    : 0;
+
+  // Create new card with same data
+  const { data: newCard, error: cardError } = await supabase
+    .from('cards')
+    .insert({
+      column_id: columnId,
+      position: maxPosition,
+      address: `${originalCard.address} (Copy)`,
+      job_type: originalCard.job_type,
+      client_name: originalCard.client_name,
+      client_phone: originalCard.client_phone,
+      client_email: originalCard.client_email,
+      property_manager: originalCard.property_manager,
+      notes: originalCard.notes,
+      quote_amount: originalCard.quote_amount,
+      projected_cost: originalCard.projected_cost,
+      projected_profit: originalCard.projected_profit,
+      projected_commission: originalCard.projected_commission,
+      projected_office: originalCard.projected_office,
+      priority: originalCard.priority,
+      due_date: originalCard.due_date,
+    })
+    .select()
+    .single();
+
+  if (cardError) throw cardError;
+
+  // Copy labels
+  if (originalCard.labels && originalCard.labels.length > 0) {
+    const labelIds = originalCard.labels.map(l => l.id);
+    await updateCardLabels(newCard.id, labelIds);
+  }
+
+  // Log activity
+  await createCardActivity(
+    newCard.id,
+    'created',
+    `Card copied from "${originalCard.address}"`,
+    { copied_from_card_id: cardId }
+  );
+
+  // Return new card with labels
+  return getCardById(newCard.id) as Promise<CardWithLabels>;
+}
+
+export async function addComment(cardId: string, comment: string): Promise<CardActivity> {
+  return createCardActivity(cardId, 'comment', comment);
+}
+
+export async function getCardLabels(cardId: string): Promise<Label[]> {
+  const { data, error } = await supabase
+    .from('card_labels')
+    .select(`
+      label_id,
+      labels (*)
+    `)
+    .eq('card_id', cardId);
+
+  if (error) throw error;
+  
+  return (data || [])
+    .map((item: any) => item.labels)
+    .filter(Boolean) as Label[];
+}
+
 // ===========================================
 // LABEL OPERATIONS
 // ===========================================

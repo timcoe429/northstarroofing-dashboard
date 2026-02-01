@@ -1,18 +1,26 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { Modal } from '../Modal';
-import { LabelSelector } from './LabelSelector';
-import { FileUpload } from './FileUpload';
-import { ActivityTimeline } from './ActivityTimeline';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import type { CardWithLabels, Label, CardActivity, CardFile, Column } from '@/types/kanban';
 import { 
   updateCard, 
   updateCardLabels, 
   getLabels, 
   getCardActivities, 
-  getCardFiles 
+  getCardFiles,
+  getCardLabels,
+  addComment,
+  copyCard,
+  deleteCard,
+  moveCard,
 } from '@/lib/supabase/kanban';
+import { useAutoSave } from '@/hooks/useAutoSave';
+import { EditableTitle } from './card-modal/EditableTitle';
+import { EditableField } from './card-modal/EditableField';
+import { LabelPicker } from './card-modal/LabelPicker';
+import { FinancialFields } from './card-modal/FinancialFields';
+import { FileAttachments } from './card-modal/FileAttachments';
+import { ActivityFeed } from './card-modal/ActivityFeed';
 
 interface CardDetailModalProps {
   isOpen: boolean;
@@ -29,25 +37,46 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
   columns,
   onCardChange,
 }) => {
-  const [labels, setLabels] = useState<Label[]>([]);
+  // Data state
+  const [allLabels, setAllLabels] = useState<Label[]>([]);
+  const [cardLabels, setCardLabels] = useState<Label[]>([]);
   const [activities, setActivities] = useState<CardActivity[]>([]);
   const [files, setFiles] = useState<CardFile[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
 
-  // Form state
-  const [formData, setFormData] = useState<Partial<CardWithLabels>>({});
+  // UI state
+  const [showLabelPicker, setShowLabelPicker] = useState(false);
+  const [showActivity, setShowActivity] = useState(true);
+  const [labelPickerAnchor, setLabelPickerAnchor] = useState<HTMLElement | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showMoveDropdown, setShowMoveDropdown] = useState(false);
+  const [showPriorityDropdown, setShowPriorityDropdown] = useState(false);
+  const [showDueDatePicker, setShowDueDatePicker] = useState(false);
 
+  // Save states per field
+  const [saveStates, setSaveStates] = useState<Record<string, 'idle' | 'saving' | 'saved' | 'error'>>({});
+
+  // Refs
+  const modalRef = useRef<HTMLDivElement>(null);
+  const moveButtonRef = useRef<HTMLButtonElement>(null);
+  const priorityButtonRef = useRef<HTMLButtonElement>(null);
+  const dueDateButtonRef = useRef<HTMLButtonElement>(null);
+  const fileUploadTriggerRef = useRef<(() => void) | null>(null);
+
+  // Load related data
   const loadRelatedData = useCallback(async () => {
     if (!card) return;
     setIsLoading(true);
     try {
-      const [labelsData, activitiesData, filesData] = await Promise.all([
+      const [labelsData, cardLabelsData, activitiesData, filesData] = await Promise.all([
         getLabels(),
+        getCardLabels(card.id),
         getCardActivities(card.id),
         getCardFiles(card.id),
       ]);
-      setLabels(labelsData);
+      setAllLabels(labelsData);
+      setCardLabels(cardLabelsData);
       setActivities(activitiesData);
       setFiles(filesData);
     } catch (error) {
@@ -58,576 +87,1036 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
   }, [card]);
 
   useEffect(() => {
-    if (card) {
-      setFormData(card);
+    if (card && isOpen) {
       loadRelatedData();
     }
-  }, [card, loadRelatedData]);
+  }, [card, isOpen, loadRelatedData]);
 
-  const handleSave = async () => {
-    if (!card) return;
+  // Handle ESC key and click outside
+  useEffect(() => {
+    if (!isOpen) return;
 
-    setIsSaving(true);
-    try {
-      // Update card fields (excluding labels which are handled separately)
-      const { labels, ...cardFields } = formData;
-      await updateCard(card.id, cardFields);
-      
-      // Update labels separately
-      const labelIds = (formData.labels || card.labels || []).map(l => l.id);
-      await updateCardLabels(card.id, labelIds);
-      
-      onCardChange();
-    } catch (error) {
-      console.error('Error saving card:', error);
-      alert('Failed to save changes. Please try again.');
-    } finally {
-      setIsSaving(false);
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !showDeleteConfirm) {
+        onClose();
+      }
+    };
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    document.addEventListener('mousedown', handleClickOutside);
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.body.style.overflow = '';
+    };
+  }, [isOpen, onClose, showDeleteConfirm]);
+
+  // Reset save states when card changes
+  useEffect(() => {
+    if (card) {
+      setSaveStates({});
     }
-  };
+  }, [card?.id]);
 
-  const handleFieldChange = (field: keyof CardWithLabels, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
+  // Auto-save hooks for each field
+  const titleAutoSave = useAutoSave(
+    card?.address || '',
+    useCallback(async (value: string) => {
+      if (!card) return;
+      setSaveStates(prev => ({ ...prev, address: 'saving' }));
+      try {
+        await updateCard(card.id, { address: value });
+        setSaveStates(prev => ({ ...prev, address: 'saved' }));
+        setTimeout(() => setSaveStates(prev => ({ ...prev, address: 'idle' })), 2000);
+      } catch (error) {
+        console.error('Error saving title:', error);
+        setSaveStates(prev => ({ ...prev, address: 'error' }));
+        setTimeout(() => setSaveStates(prev => ({ ...prev, address: 'idle' })), 3000);
+      }
+    }, [card]),
+    { debounceMs: 300 }
+  );
 
-  const handleLabelsChange = (labelIds: string[]) => {
-    const selectedLabels = labels.filter(l => labelIds.includes(l.id));
-    handleFieldChange('labels', selectedLabels);
+  const descriptionAutoSave = useAutoSave(
+    card?.notes || '',
+    useCallback(async (value: string | null) => {
+      if (!card) return;
+      setSaveStates(prev => ({ ...prev, notes: 'saving' }));
+      try {
+        await updateCard(card.id, { notes: value });
+        setSaveStates(prev => ({ ...prev, notes: 'saved' }));
+        setTimeout(() => setSaveStates(prev => ({ ...prev, notes: 'idle' })), 2000);
+      } catch (error) {
+        console.error('Error saving description:', error);
+        setSaveStates(prev => ({ ...prev, notes: 'error' }));
+        setTimeout(() => setSaveStates(prev => ({ ...prev, notes: 'idle' })), 3000);
+      }
+    }, [card]),
+    { debounceMs: 300 }
+  );
+
+  const clientNameAutoSave = useAutoSave(
+    card?.client_name || '',
+    useCallback(async (value: string | null) => {
+      if (!card) return;
+      setSaveStates(prev => ({ ...prev, client_name: 'saving' }));
+      try {
+        await updateCard(card.id, { client_name: value });
+        setSaveStates(prev => ({ ...prev, client_name: 'saved' }));
+        setTimeout(() => setSaveStates(prev => ({ ...prev, client_name: 'idle' })), 2000);
+      } catch (error) {
+        console.error('Error saving client name:', error);
+        setSaveStates(prev => ({ ...prev, client_name: 'error' }));
+        setTimeout(() => setSaveStates(prev => ({ ...prev, client_name: 'idle' })), 3000);
+      }
+    }, [card]),
+    { debounceMs: 300 }
+  );
+
+  const clientPhoneAutoSave = useAutoSave(
+    card?.client_phone || '',
+    useCallback(async (value: string | null) => {
+      if (!card) return;
+      setSaveStates(prev => ({ ...prev, client_phone: 'saving' }));
+      try {
+        await updateCard(card.id, { client_phone: value });
+        setSaveStates(prev => ({ ...prev, client_phone: 'saved' }));
+        setTimeout(() => setSaveStates(prev => ({ ...prev, client_phone: 'idle' })), 2000);
+      } catch (error) {
+        console.error('Error saving client phone:', error);
+        setSaveStates(prev => ({ ...prev, client_phone: 'error' }));
+        setTimeout(() => setSaveStates(prev => ({ ...prev, client_phone: 'idle' })), 3000);
+      }
+    }, [card]),
+    { debounceMs: 300 }
+  );
+
+  const clientEmailAutoSave = useAutoSave(
+    card?.client_email || '',
+    useCallback(async (value: string | null) => {
+      if (!card) return;
+      setSaveStates(prev => ({ ...prev, client_email: 'saving' }));
+      try {
+        await updateCard(card.id, { client_email: value });
+        setSaveStates(prev => ({ ...prev, client_email: 'saved' }));
+        setTimeout(() => setSaveStates(prev => ({ ...prev, client_email: 'idle' })), 2000);
+      } catch (error) {
+        console.error('Error saving client email:', error);
+        setSaveStates(prev => ({ ...prev, client_email: 'error' }));
+        setTimeout(() => setSaveStates(prev => ({ ...prev, client_email: 'idle' })), 3000);
+      }
+    }, [card]),
+    { debounceMs: 300 }
+  );
+
+  const propertyManagerAutoSave = useAutoSave(
+    card?.property_manager || '',
+    useCallback(async (value: string | null) => {
+      if (!card) return;
+      setSaveStates(prev => ({ ...prev, property_manager: 'saving' }));
+      try {
+        await updateCard(card.id, { property_manager: value });
+        setSaveStates(prev => ({ ...prev, property_manager: 'saved' }));
+        setTimeout(() => setSaveStates(prev => ({ ...prev, property_manager: 'idle' })), 2000);
+      } catch (error) {
+        console.error('Error saving property manager:', error);
+        setSaveStates(prev => ({ ...prev, property_manager: 'error' }));
+        setTimeout(() => setSaveStates(prev => ({ ...prev, property_manager: 'idle' })), 3000);
+      }
+    }, [card]),
+    { debounceMs: 300 }
+  );
+
+  const quoteAmountAutoSave = useAutoSave(
+    card?.quote_amount || null,
+    useCallback(async (value: number | null) => {
+      if (!card) return;
+      setSaveStates(prev => ({ ...prev, quote_amount: 'saving' }));
+      try {
+        await updateCard(card.id, { quote_amount: value });
+        setSaveStates(prev => ({ ...prev, quote_amount: 'saved' }));
+        setTimeout(() => setSaveStates(prev => ({ ...prev, quote_amount: 'idle' })), 2000);
+      } catch (error) {
+        console.error('Error saving quote amount:', error);
+        setSaveStates(prev => ({ ...prev, quote_amount: 'error' }));
+        setTimeout(() => setSaveStates(prev => ({ ...prev, quote_amount: 'idle' })), 3000);
+      }
+    }, [card]),
+    { debounceMs: 500 }
+  );
+
+  const projectedCostAutoSave = useAutoSave(
+    card?.projected_cost || null,
+    useCallback(async (value: number | null) => {
+      if (!card) return;
+      setSaveStates(prev => ({ ...prev, projected_cost: 'saving' }));
+      try {
+        await updateCard(card.id, { projected_cost: value });
+        setSaveStates(prev => ({ ...prev, projected_cost: 'saved' }));
+        setTimeout(() => setSaveStates(prev => ({ ...prev, projected_cost: 'idle' })), 2000);
+      } catch (error) {
+        console.error('Error saving projected cost:', error);
+        setSaveStates(prev => ({ ...prev, projected_cost: 'error' }));
+        setTimeout(() => setSaveStates(prev => ({ ...prev, projected_cost: 'idle' })), 3000);
+      }
+    }, [card]),
+    { debounceMs: 500 }
+  );
+
+  const projectedProfitAutoSave = useAutoSave(
+    card?.projected_profit || null,
+    useCallback(async (value: number | null) => {
+      if (!card) return;
+      setSaveStates(prev => ({ ...prev, projected_profit: 'saving' }));
+      try {
+        await updateCard(card.id, { projected_profit: value });
+        setSaveStates(prev => ({ ...prev, projected_profit: 'saved' }));
+        setTimeout(() => setSaveStates(prev => ({ ...prev, projected_profit: 'idle' })), 2000);
+      } catch (error) {
+        console.error('Error saving projected profit:', error);
+        setSaveStates(prev => ({ ...prev, projected_profit: 'error' }));
+        setTimeout(() => setSaveStates(prev => ({ ...prev, projected_profit: 'idle' })), 3000);
+      }
+    }, [card]),
+    { debounceMs: 500 }
+  );
+
+  const projectedCommissionAutoSave = useAutoSave(
+    card?.projected_commission || null,
+    useCallback(async (value: number | null) => {
+      if (!card) return;
+      setSaveStates(prev => ({ ...prev, projected_commission: 'saving' }));
+      try {
+        await updateCard(card.id, { projected_commission: value });
+        setSaveStates(prev => ({ ...prev, projected_commission: 'saved' }));
+        setTimeout(() => setSaveStates(prev => ({ ...prev, projected_commission: 'idle' })), 2000);
+      } catch (error) {
+        console.error('Error saving projected commission:', error);
+        setSaveStates(prev => ({ ...prev, projected_commission: 'error' }));
+        setTimeout(() => setSaveStates(prev => ({ ...prev, projected_commission: 'idle' })), 3000);
+      }
+    }, [card]),
+    { debounceMs: 500 }
+  );
+
+  const projectedOfficeAutoSave = useAutoSave(
+    card?.projected_office || null,
+    useCallback(async (value: number | null) => {
+      if (!card) return;
+      setSaveStates(prev => ({ ...prev, projected_office: 'saving' }));
+      try {
+        await updateCard(card.id, { projected_office: value });
+        setSaveStates(prev => ({ ...prev, projected_office: 'saved' }));
+        setTimeout(() => setSaveStates(prev => ({ ...prev, projected_office: 'idle' })), 2000);
+      } catch (error) {
+        console.error('Error saving projected office:', error);
+        setSaveStates(prev => ({ ...prev, projected_office: 'error' }));
+        setTimeout(() => setSaveStates(prev => ({ ...prev, projected_office: 'idle' })), 3000);
+      }
+    }, [card]),
+    { debounceMs: 500 }
+  );
+
+  // Handlers
+  const handleLabelToggle = async (labelId: string) => {
+    if (!card) return;
+    
+    const isSelected = cardLabels.some(l => l.id === labelId);
+    const newLabelIds = isSelected
+      ? cardLabels.filter(l => l.id !== labelId).map(l => l.id)
+      : [...cardLabels.map(l => l.id), labelId];
+
+    // Optimistic update
+    if (isSelected) {
+      setCardLabels(prev => prev.filter(l => l.id !== labelId));
+    } else {
+      const labelToAdd = allLabels.find(l => l.id === labelId);
+      if (labelToAdd) {
+        setCardLabels(prev => [...prev, labelToAdd]);
+      }
+    }
+
+    try {
+      await updateCardLabels(card.id, newLabelIds);
+      await loadRelatedData(); // Refresh to ensure sync
+    } catch (error) {
+      console.error('Error updating labels:', error);
+      await loadRelatedData(); // Revert on error
+    }
   };
 
   const handleColumnChange = async (newColumnId: string) => {
     if (!card || card.column_id === newColumnId) return;
     
-    setIsSaving(true);
+    setSaveStates(prev => ({ ...prev, column_id: 'saving' }));
     try {
-      await updateCard(card.id, { column_id: newColumnId });
-      onCardChange();
+      // Get new column position (end of column)
+      const targetColumn = columns.find(c => c.id === newColumnId);
+      if (!targetColumn) return;
+
+      await moveCard(card.id, newColumnId, 999); // Will be repositioned by moveCard
+      setSaveStates(prev => ({ ...prev, column_id: 'saved' }));
+      setTimeout(() => setSaveStates(prev => ({ ...prev, column_id: 'idle' })), 2000);
+      onCardChange(); // Notify parent to refresh board
     } catch (error) {
       console.error('Error moving card:', error);
-      alert('Failed to move card. Please try again.');
-    } finally {
-      setIsSaving(false);
+      setSaveStates(prev => ({ ...prev, column_id: 'error' }));
+      setTimeout(() => setSaveStates(prev => ({ ...prev, column_id: 'idle' })), 3000);
     }
   };
 
-  const formatCurrency = (amount: number | null) => {
-    if (!amount) return '';
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      maximumFractionDigits: 0,
-    }).format(amount);
+  const handlePriorityChange = async (priority: 'low' | 'medium' | 'high' | 'urgent' | null) => {
+    if (!card) return;
+    
+    setSaveStates(prev => ({ ...prev, priority: 'saving' }));
+    try {
+      await updateCard(card.id, { priority });
+      setSaveStates(prev => ({ ...prev, priority: 'saved' }));
+      setTimeout(() => setSaveStates(prev => ({ ...prev, priority: 'idle' })), 2000);
+    } catch (error) {
+      console.error('Error updating priority:', error);
+      setSaveStates(prev => ({ ...prev, priority: 'error' }));
+      setTimeout(() => setSaveStates(prev => ({ ...prev, priority: 'idle' })), 3000);
+    }
   };
 
-  const parseCurrency = (value: string) => {
-    const num = parseFloat(value.replace(/[^0-9.-]+/g, ''));
-    return isNaN(num) ? null : num;
+  const handleDueDateChange = async (dueDate: string | null) => {
+    if (!card) return;
+    
+    setSaveStates(prev => ({ ...prev, due_date: 'saving' }));
+    try {
+      await updateCard(card.id, { due_date: dueDate });
+      setSaveStates(prev => ({ ...prev, due_date: 'saved' }));
+      setTimeout(() => setSaveStates(prev => ({ ...prev, due_date: 'idle' })), 2000);
+    } catch (error) {
+      console.error('Error updating due date:', error);
+      setSaveStates(prev => ({ ...prev, due_date: 'error' }));
+      setTimeout(() => setSaveStates(prev => ({ ...prev, due_date: 'idle' })), 3000);
+    }
   };
 
-  if (!card) return null;
+  const handleAddComment = async (comment: string) => {
+    if (!card) return;
+    
+    setIsSubmittingComment(true);
+    try {
+      await addComment(card.id, comment);
+      await loadRelatedData(); // Refresh activities
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      alert('Failed to add comment. Please try again.');
+    } finally {
+      setIsSubmittingComment(false);
+    }
+  };
 
-  const currentColumn = columns.find(c => c.id === card.column_id);
+  const handleCopyCard = async () => {
+    if (!card) return;
+    
+    try {
+      await copyCard(card.id);
+      onCardChange(); // Refresh board to show new card
+      alert('Card copied successfully!');
+    } catch (error) {
+      console.error('Error copying card:', error);
+      alert('Failed to copy card. Please try again.');
+    }
+  };
+
+  const handleDeleteCard = async () => {
+    if (!card) return;
+    
+    if (!confirm('Are you sure you want to delete this card? This action cannot be undone.')) {
+      setShowDeleteConfirm(false);
+      return;
+    }
+
+    try {
+      await deleteCard(card.id);
+      onCardChange(); // Refresh board
+      onClose(); // Close modal
+    } catch (error) {
+      console.error('Error deleting card:', error);
+      alert('Failed to delete card. Please try again.');
+    }
+  };
+
+  const currentColumn = columns.find(c => c.id === card?.column_id);
+
+  if (!isOpen || !card) return null;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="">
-      <div style={{ 
-        display: 'flex', 
-        flexDirection: 'column', 
-        maxHeight: '85vh',
-        overflow: 'hidden',
-      }}>
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0, 0, 0, 0.5)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000,
+        padding: 20,
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div
+        ref={modalRef}
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: '#ffffff',
+          borderRadius: 8,
+          width: '100%',
+          maxWidth: 768,
+          maxHeight: '90vh',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          boxShadow: '0 25px 50px rgba(0,0,0,0.25)',
+        }}
+      >
         {/* Header */}
         <div style={{
-          paddingBottom: 16,
-          borderBottom: '1px solid #e2e8f0',
-          marginBottom: 20,
+          padding: '24px 24px 16px',
+          borderBottom: '1px solid #dfe1e6',
         }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
             <div style={{ flex: 1 }}>
-              <h2 style={{ 
-                margin: '0 0 8px 0', 
-                fontSize: 20, 
-                fontWeight: 600, 
-                color: '#0f172a' 
-              }}>
-                {formData.address || card.address}
-              </h2>
-              <select
-                value={formData.column_id || card.column_id}
-                onChange={(e) => handleColumnChange(e.target.value)}
-                style={{
-                  padding: '4px 8px',
-                  borderRadius: 4,
-                  border: '1px solid #e2e8f0',
-                  fontSize: 12,
-                  background: 'white',
-                  color: '#334155',
-                }}
-              >
-                {columns.map(col => (
-                  <option key={col.id} value={col.id}>
-                    {col.name}
-                  </option>
-                ))}
-              </select>
+              <EditableTitle
+                value={titleAutoSave.value}
+                onChange={titleAutoSave.setValue}
+                onSave={titleAutoSave.saveNow}
+                saveState={saveStates.address}
+              />
+              <div style={{ marginTop: 8, fontSize: 13, color: '#5e6c84' }}>
+                in list{' '}
+                <button
+                  onClick={() => setShowMoveDropdown(!showMoveDropdown)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#0079bf',
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                    padding: 0,
+                    fontSize: 13,
+                  }}
+                >
+                  {currentColumn?.name || 'Unknown'}
+                </button>
+                {showMoveDropdown && (
+                  <div style={{
+                    position: 'absolute',
+                    background: '#ffffff',
+                    border: '1px solid #dfe1e6',
+                    borderRadius: 8,
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                    zIndex: 1001,
+                    marginTop: 4,
+                    minWidth: 200,
+                  }}>
+                    {columns.map(col => (
+                      <button
+                        key={col.id}
+                        onClick={() => {
+                          handleColumnChange(col.id);
+                          setShowMoveDropdown(false);
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px',
+                          border: 'none',
+                          background: col.id === card.column_id ? '#e4f0f6' : 'transparent',
+                          textAlign: 'left',
+                          cursor: 'pointer',
+                          fontSize: 13,
+                          color: '#172b4d',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = '#f4f5f7';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = col.id === card.column_id ? '#e4f0f6' : 'transparent';
+                        }}
+                      >
+                        {col.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <select
-                value={formData.priority || card.priority || ''}
-                onChange={(e) => handleFieldChange('priority', e.target.value || null)}
-                style={{
-                  padding: '6px 10px',
-                  borderRadius: 4,
-                  border: '1px solid #e2e8f0',
-                  fontSize: 12,
-                  background: 'white',
-                }}
-              >
-                <option value="">Priority</option>
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-                <option value="urgent">Urgent</option>
-              </select>
-            </div>
+            <button
+              onClick={onClose}
+              style={{
+                background: 'none',
+                border: 'none',
+                fontSize: 24,
+                color: '#5e6c84',
+                cursor: 'pointer',
+                padding: 4,
+                lineHeight: 1,
+                borderRadius: 4,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#f4f5f7';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+              }}
+            >
+              ×
+            </button>
           </div>
         </div>
 
-        {/* Main Content */}
-        <div style={{ 
-          display: 'flex', 
-          gap: 24, 
-          overflow: 'hidden',
+        {/* Content */}
+        <div style={{
           flex: 1,
+          overflowY: 'auto',
+          display: 'flex',
+          gap: 24,
+          padding: 24,
         }}>
-          {/* Left Side - Main Content */}
-          <div style={{ flex: 2, overflowY: 'auto', paddingRight: 8 }}>
-            {/* Job Type */}
-            <div style={{ marginBottom: 20 }}>
-              <label style={{ 
-                display: 'block', 
-                fontSize: 13, 
-                fontWeight: 600, 
-                color: '#334155', 
-                marginBottom: 6 
+          {/* Left Side (65%) */}
+          <div style={{ flex: '0 0 65%', display: 'flex', flexDirection: 'column', gap: 24 }}>
+            {/* Labels */}
+            <div>
+              <h3 style={{
+                fontSize: 14,
+                fontWeight: 600,
+                color: '#172b4d',
+                marginBottom: 8,
+                marginTop: 0,
+                textTransform: 'uppercase',
+                letterSpacing: 0.5,
               }}>
-                Job Type
-              </label>
-              <select
-                value={formData.job_type || card.job_type || ''}
-                onChange={(e) => handleFieldChange('job_type', e.target.value || null)}
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  borderRadius: 4,
-                  border: '1px solid #e2e8f0',
-                  fontSize: 13,
-                  background: 'white',
-                }}
-              >
-                <option value="">Select job type</option>
-                <option value="Full Replacement">Full Replacement</option>
-                <option value="Repair">Repair</option>
-                <option value="Inspection">Inspection</option>
-                <option value="Gutters">Gutters</option>
-              </select>
+                Labels
+              </h3>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, position: 'relative' }}>
+                {cardLabels.map(label => (
+                  <div
+                    key={label.id}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: 4,
+                      background: label.color,
+                      color: 'white',
+                      fontSize: 12,
+                      fontWeight: 500,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                    }}
+                  >
+                    {label.name}
+                  </div>
+                ))}
+                <button
+                  onClick={(e) => {
+                    setLabelPickerAnchor(e.currentTarget as HTMLElement);
+                    setShowLabelPicker(true);
+                  }}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: 4,
+                    border: '1px dashed #dfe1e6',
+                    background: 'transparent',
+                    color: '#5e6c84',
+                    fontSize: 12,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = '#0079bf';
+                    e.currentTarget.style.color = '#0079bf';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = '#dfe1e6';
+                    e.currentTarget.style.color = '#5e6c84';
+                  }}
+                >
+                  +
+                </button>
+                {showLabelPicker && labelPickerAnchor && (
+                  <LabelPicker
+                    isOpen={showLabelPicker}
+                    onClose={() => setShowLabelPicker(false)}
+                    allLabels={allLabels}
+                    selectedLabelIds={cardLabels.map(l => l.id)}
+                    onToggleLabel={handleLabelToggle}
+                    anchorElement={labelPickerAnchor}
+                  />
+                )}
+              </div>
             </div>
 
-            {/* Client Info */}
-            <div style={{ marginBottom: 20 }}>
-              <h3 style={{ 
-                fontSize: 14, 
-                fontWeight: 600, 
-                color: '#00293f', 
+            {/* Description */}
+            <EditableField
+              label="Description"
+              value={descriptionAutoSave.value}
+              type="textarea"
+              onChange={descriptionAutoSave.setValue}
+              onSave={descriptionAutoSave.saveNow}
+              placeholder="Add a more detailed description..."
+              saveState={saveStates.notes}
+              rows={4}
+            />
+
+            {/* Client Information */}
+            <div>
+              <h3 style={{
+                fontSize: 14,
+                fontWeight: 600,
+                color: '#172b4d',
                 marginBottom: 12,
                 marginTop: 0,
+                textTransform: 'uppercase',
+                letterSpacing: 0.5,
               }}>
                 Client Information
               </h3>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div>
-                  <label style={{ 
-                    display: 'block', 
-                    fontSize: 12, 
-                    color: '#64748b', 
-                    marginBottom: 4 
-                  }}>
-                    Name
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.client_name || card.client_name || ''}
-                    onChange={(e) => handleFieldChange('client_name', e.target.value || null)}
-                    style={{
-                      width: '100%',
-                      padding: '6px 8px',
-                      borderRadius: 4,
-                      border: '1px solid #e2e8f0',
-                      fontSize: 13,
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ 
-                    display: 'block', 
-                    fontSize: 12, 
-                    color: '#64748b', 
-                    marginBottom: 4 
-                  }}>
-                    Phone
-                  </label>
-                  <input
-                    type="tel"
-                    value={formData.client_phone || card.client_phone || ''}
-                    onChange={(e) => handleFieldChange('client_phone', e.target.value || null)}
-                    style={{
-                      width: '100%',
-                      padding: '6px 8px',
-                      borderRadius: 4,
-                      border: '1px solid #e2e8f0',
-                      fontSize: 13,
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ 
-                    display: 'block', 
-                    fontSize: 12, 
-                    color: '#64748b', 
-                    marginBottom: 4 
-                  }}>
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    value={formData.client_email || card.client_email || ''}
-                    onChange={(e) => handleFieldChange('client_email', e.target.value || null)}
-                    style={{
-                      width: '100%',
-                      padding: '6px 8px',
-                      borderRadius: 4,
-                      border: '1px solid #e2e8f0',
-                      fontSize: 13,
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ 
-                    display: 'block', 
-                    fontSize: 12, 
-                    color: '#64748b', 
-                    marginBottom: 4 
-                  }}>
-                    Property Manager
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.property_manager || card.property_manager || ''}
-                    onChange={(e) => handleFieldChange('property_manager', e.target.value || null)}
-                    style={{
-                      width: '100%',
-                      padding: '6px 8px',
-                      borderRadius: 4,
-                      border: '1px solid #e2e8f0',
-                      fontSize: 13,
-                    }}
-                  />
-                </div>
+                <EditableField
+                  label="Name"
+                  value={clientNameAutoSave.value}
+                  type="text"
+                  onChange={clientNameAutoSave.setValue}
+                  onSave={clientNameAutoSave.saveNow}
+                  placeholder="Client name"
+                  saveState={saveStates.client_name}
+                />
+                <EditableField
+                  label="Phone"
+                  value={clientPhoneAutoSave.value}
+                  type="tel"
+                  onChange={clientPhoneAutoSave.setValue}
+                  onSave={clientPhoneAutoSave.saveNow}
+                  placeholder="Phone number"
+                  saveState={saveStates.client_phone}
+                />
+                <EditableField
+                  label="Email"
+                  value={clientEmailAutoSave.value}
+                  type="email"
+                  onChange={clientEmailAutoSave.setValue}
+                  onSave={clientEmailAutoSave.saveNow}
+                  placeholder="Email address"
+                  saveState={saveStates.client_email}
+                />
+                <EditableField
+                  label="Property Manager"
+                  value={propertyManagerAutoSave.value}
+                  type="text"
+                  onChange={propertyManagerAutoSave.setValue}
+                  onSave={propertyManagerAutoSave.saveNow}
+                  placeholder="Property manager"
+                  saveState={saveStates.property_manager}
+                />
               </div>
             </div>
 
-            {/* Notes */}
-            <div style={{ marginBottom: 20 }}>
-              <label style={{ 
-                display: 'block', 
-                fontSize: 13, 
-                fontWeight: 600, 
-                color: '#334155', 
-                marginBottom: 6 
-              }}>
-                Notes
-              </label>
-              <textarea
-                value={formData.notes || card.notes || ''}
-                onChange={(e) => handleFieldChange('notes', e.target.value || null)}
-                rows={4}
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  borderRadius: 4,
-                  border: '1px solid #e2e8f0',
-                  fontSize: 13,
-                  fontFamily: 'inherit',
-                  resize: 'vertical',
-                }}
-              />
-            </div>
+            {/* Financial Summary */}
+            <FinancialFields
+              quoteAmount={quoteAmountAutoSave.value}
+              projectedCost={projectedCostAutoSave.value}
+              projectedProfit={projectedProfitAutoSave.value}
+              projectedCommission={projectedCommissionAutoSave.value}
+              projectedOffice={projectedOfficeAutoSave.value}
+              onQuoteAmountChange={quoteAmountAutoSave.setValue}
+              onProjectedCostChange={projectedCostAutoSave.setValue}
+              onProjectedProfitChange={projectedProfitAutoSave.setValue}
+              onProjectedCommissionChange={projectedCommissionAutoSave.setValue}
+              onProjectedOfficeChange={projectedOfficeAutoSave.setValue}
+              onQuoteAmountSave={quoteAmountAutoSave.saveNow}
+              onProjectedCostSave={projectedCostAutoSave.saveNow}
+              onProjectedProfitSave={projectedProfitAutoSave.saveNow}
+              onProjectedCommissionSave={projectedCommissionAutoSave.saveNow}
+              onProjectedOfficeSave={projectedOfficeAutoSave.saveNow}
+              saveStates={saveStates}
+            />
 
-            {/* Files */}
-            <div style={{ marginBottom: 20 }}>
-              <FileUpload
-                cardId={card.id}
-                files={files}
-                onFilesChange={async () => {
-                  const updatedFiles = await getCardFiles(card.id);
-                  setFiles(updatedFiles);
-                  onCardChange();
-                }}
-              />
-            </div>
+            {/* Attachments */}
+            <FileAttachments
+              cardId={card.id}
+              files={files}
+              onFilesChange={loadRelatedData}
+              triggerUploadRef={fileUploadTriggerRef}
+            />
           </div>
 
-          {/* Right Sidebar */}
-          <div style={{ 
-            flex: 1, 
-            borderLeft: '1px solid #e2e8f0', 
-            paddingLeft: 24,
-            overflowY: 'auto',
-          }}>
-            {/* Financial Summary */}
-            <div style={{ marginBottom: 24 }}>
-              <h3 style={{ 
-                fontSize: 14, 
-                fontWeight: 600, 
-                color: '#00293f', 
+          {/* Right Sidebar (35%) */}
+          <div style={{ flex: '0 0 35%', display: 'flex', flexDirection: 'column', gap: 24 }}>
+            {/* Add to Card */}
+            <div>
+              <h3 style={{
+                fontSize: 14,
+                fontWeight: 600,
+                color: '#172b4d',
                 marginBottom: 12,
                 marginTop: 0,
+                textTransform: 'uppercase',
+                letterSpacing: 0.5,
               }}>
-                Financial Summary
+                Add to Card
               </h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div>
-                  <label style={{ 
-                    display: 'block', 
-                    fontSize: 12, 
-                    color: '#64748b', 
-                    marginBottom: 4 
-                  }}>
-                    Quote Amount
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.quote_amount ? formatCurrency(formData.quote_amount) : ''}
-                    onChange={(e) => handleFieldChange('quote_amount', parseCurrency(e.target.value))}
-                    placeholder="$0.00"
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <button
+                  onClick={(e) => {
+                    setLabelPickerAnchor(e.currentTarget);
+                    setShowLabelPicker(true);
+                  }}
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: 4,
+                    border: '1px solid #dfe1e6',
+                    background: '#ffffff',
+                    color: '#172b4d',
+                    fontSize: 14,
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#f4f5f7';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = '#ffffff';
+                  }}
+                >
+                  <span>🏷️</span>
+                  <span>Labels</span>
+                </button>
+                <button
+                  onClick={() => {
+                    // Scroll to attachments section
+                    const attachmentsSection = modalRef.current?.querySelector('[data-section="attachments"]');
+                    if (attachmentsSection) {
+                      attachmentsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                  }}
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: 4,
+                    border: '1px solid #dfe1e6',
+                    background: '#ffffff',
+                    color: '#172b4d',
+                    fontSize: 14,
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#f4f5f7';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = '#ffffff';
+                  }}
+                >
+                  <span>📎</span>
+                  <span>Attachments</span>
+                </button>
+                <div style={{ position: 'relative' }}>
+                  <button
+                    ref={dueDateButtonRef}
+                    onClick={() => setShowDueDatePicker(!showDueDatePicker)}
                     style={{
                       width: '100%',
-                      padding: '6px 8px',
+                      padding: '8px 12px',
                       borderRadius: 4,
-                      border: '1px solid #e2e8f0',
-                      fontSize: 13,
+                      border: '1px solid #dfe1e6',
+                      background: '#ffffff',
+                      color: '#172b4d',
+                      fontSize: 14,
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
                     }}
-                  />
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = '#f4f5f7';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = '#ffffff';
+                    }}
+                  >
+                    <span>📅</span>
+                    <span>Due Date</span>
+                  </button>
+                  {showDueDatePicker && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      marginTop: 4,
+                      background: '#ffffff',
+                      border: '1px solid #dfe1e6',
+                      borderRadius: 8,
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                      zIndex: 1001,
+                      padding: 8,
+                    }}>
+                      <input
+                        type="date"
+                        value={card.due_date || ''}
+                        onChange={(e) => {
+                          handleDueDateChange(e.target.value || null);
+                          setShowDueDatePicker(false);
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '6px',
+                          border: '1px solid #dfe1e6',
+                          borderRadius: 4,
+                          fontSize: 13,
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
-                <div>
-                  <label style={{ 
-                    display: 'block', 
-                    fontSize: 12, 
-                    color: '#64748b', 
-                    marginBottom: 4 
-                  }}>
-                    Projected Cost
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.projected_cost ? formatCurrency(formData.projected_cost) : ''}
-                    onChange={(e) => handleFieldChange('projected_cost', parseCurrency(e.target.value))}
-                    placeholder="$0.00"
+                <div style={{ position: 'relative' }}>
+                  <button
+                    ref={priorityButtonRef}
+                    onClick={() => setShowPriorityDropdown(!showPriorityDropdown)}
                     style={{
                       width: '100%',
-                      padding: '6px 8px',
+                      padding: '8px 12px',
                       borderRadius: 4,
-                      border: '1px solid #e2e8f0',
-                      fontSize: 13,
+                      border: '1px solid #dfe1e6',
+                      background: '#ffffff',
+                      color: '#172b4d',
+                      fontSize: 14,
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
                     }}
-                  />
-                </div>
-                <div>
-                  <label style={{ 
-                    display: 'block', 
-                    fontSize: 12, 
-                    color: '#64748b', 
-                    marginBottom: 4 
-                  }}>
-                    Projected Profit
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.projected_profit ? formatCurrency(formData.projected_profit) : ''}
-                    onChange={(e) => handleFieldChange('projected_profit', parseCurrency(e.target.value))}
-                    placeholder="$0.00"
-                    style={{
-                      width: '100%',
-                      padding: '6px 8px',
-                      borderRadius: 4,
-                      border: '1px solid #e2e8f0',
-                      fontSize: 13,
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = '#f4f5f7';
                     }}
-                  />
-                </div>
-                <div>
-                  <label style={{ 
-                    display: 'block', 
-                    fontSize: 12, 
-                    color: '#64748b', 
-                    marginBottom: 4 
-                  }}>
-                    Projected Commission
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.projected_commission ? formatCurrency(formData.projected_commission) : ''}
-                    onChange={(e) => handleFieldChange('projected_commission', parseCurrency(e.target.value))}
-                    placeholder="$0.00"
-                    style={{
-                      width: '100%',
-                      padding: '6px 8px',
-                      borderRadius: 4,
-                      border: '1px solid #e2e8f0',
-                      fontSize: 13,
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = '#ffffff';
                     }}
-                  />
-                </div>
-                <div>
-                  <label style={{ 
-                    display: 'block', 
-                    fontSize: 12, 
-                    color: '#64748b', 
-                    marginBottom: 4 
-                  }}>
-                    Projected Office
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.projected_office ? formatCurrency(formData.projected_office) : ''}
-                    onChange={(e) => handleFieldChange('projected_office', parseCurrency(e.target.value))}
-                    placeholder="$0.00"
-                    style={{
-                      width: '100%',
-                      padding: '6px 8px',
-                      borderRadius: 4,
-                      border: '1px solid #e2e8f0',
-                      fontSize: 13,
-                    }}
-                  />
+                  >
+                    <span>⚡</span>
+                    <span>Priority</span>
+                  </button>
+                  {showPriorityDropdown && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      marginTop: 4,
+                      background: '#ffffff',
+                      border: '1px solid #dfe1e6',
+                      borderRadius: 8,
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                      zIndex: 1001,
+                      minWidth: 150,
+                    }}>
+                      {(['low', 'medium', 'high', 'urgent', null] as const).map(priority => (
+                        <button
+                          key={priority || 'none'}
+                          onClick={() => {
+                            handlePriorityChange(priority);
+                            setShowPriorityDropdown(false);
+                          }}
+                          style={{
+                            width: '100%',
+                            padding: '8px 12px',
+                            border: 'none',
+                            background: card.priority === priority ? '#e4f0f6' : 'transparent',
+                            textAlign: 'left',
+                            cursor: 'pointer',
+                            fontSize: 13,
+                            color: '#172b4d',
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = '#f4f5f7';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = card.priority === priority ? '#e4f0f6' : 'transparent';
+                          }}
+                        >
+                          {priority ? priority.charAt(0).toUpperCase() + priority.slice(1) : 'None'}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
 
-            {/* Labels */}
-            <div style={{ marginBottom: 24 }}>
-              <LabelSelector
-                labels={labels}
-                selectedLabelIds={(formData.labels || card.labels || []).map(l => l.id)}
-                onSelectionChange={handleLabelsChange}
-              />
-            </div>
-
-            {/* Due Date */}
-            <div style={{ marginBottom: 24 }}>
-              <label style={{ 
-                display: 'block', 
-                fontSize: 13, 
-                fontWeight: 600, 
-                color: '#334155', 
-                marginBottom: 6 
-              }}>
-                Due Date
-              </label>
-              <input
-                type="date"
-                value={formData.due_date || card.due_date || ''}
-                onChange={(e) => handleFieldChange('due_date', e.target.value || null)}
-                style={{
-                  width: '100%',
-                  padding: '6px 8px',
-                  borderRadius: 4,
-                  border: '1px solid #e2e8f0',
-                  fontSize: 13,
-                }}
-              />
-            </div>
-
-            {/* Created Date (read-only) */}
+            {/* Actions */}
             <div>
-              <label style={{ 
-                display: 'block', 
-                fontSize: 12, 
-                color: '#64748b', 
-                marginBottom: 4 
+              <h3 style={{
+                fontSize: 14,
+                fontWeight: 600,
+                color: '#172b4d',
+                marginBottom: 12,
+                marginTop: 0,
+                textTransform: 'uppercase',
+                letterSpacing: 0.5,
               }}>
-                Created
-              </label>
-              <p style={{ 
-                margin: 0, 
-                fontSize: 12, 
-                color: '#334155' 
-              }}>
-                {new Date(card.created_at).toLocaleDateString('en-US', {
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric',
-                })}
-              </p>
+                Actions
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <button
+                  ref={moveButtonRef}
+                  onClick={() => setShowMoveDropdown(!showMoveDropdown)}
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: 4,
+                    border: '1px solid #dfe1e6',
+                    background: '#ffffff',
+                    color: '#172b4d',
+                    fontSize: 14,
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#f4f5f7';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = '#ffffff';
+                  }}
+                >
+                  Move
+                </button>
+                <button
+                  onClick={handleCopyCard}
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: 4,
+                    border: '1px solid #dfe1e6',
+                    background: '#ffffff',
+                    color: '#172b4d',
+                    fontSize: 14,
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#f4f5f7';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = '#ffffff';
+                  }}
+                >
+                  Copy
+                </button>
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: 4,
+                    border: '1px solid #dfe1e6',
+                    background: '#ffffff',
+                    color: '#eb5a46',
+                    fontSize: 14,
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#fef2f2';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = '#ffffff';
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+
+            {/* Activity */}
+            <ActivityFeed
+              activities={activities}
+              onAddComment={handleAddComment}
+              showActivity={showActivity}
+              onToggleActivity={() => setShowActivity(!showActivity)}
+              isSubmittingComment={isSubmittingComment}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Delete Confirmation */}
+      {showDeleteConfirm && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 2000,
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: 8,
+            padding: 24,
+            maxWidth: 400,
+            boxShadow: '0 25px 50px rgba(0,0,0,0.25)',
+          }}>
+            <h3 style={{ margin: '0 0 12px', fontSize: 18, fontWeight: 600 }}>
+              Delete Card?
+            </h3>
+            <p style={{ margin: '0 0 20px', fontSize: 14, color: '#5e6c84' }}>
+              This will permanently delete this card. This action cannot be undone.
+            </p>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: 4,
+                  border: '1px solid #dfe1e6',
+                  background: '#ffffff',
+                  color: '#172b4d',
+                  fontSize: 14,
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteCard}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: 4,
+                  border: 'none',
+                  background: '#eb5a46',
+                  color: 'white',
+                  fontSize: 14,
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                }}
+              >
+                Delete
+              </button>
             </div>
           </div>
         </div>
-
-        {/* Activity Timeline */}
-        <div style={{
-          marginTop: 24,
-          paddingTop: 24,
-          borderTop: '1px solid #e2e8f0',
-        }}>
-          {isLoading ? (
-            <p style={{ fontSize: 12, color: '#64748b' }}>Loading activity...</p>
-          ) : (
-            <ActivityTimeline activities={activities} />
-          )}
-        </div>
-
-        {/* Footer Actions */}
-        <div style={{
-          marginTop: 20,
-          paddingTop: 16,
-          borderTop: '1px solid #e2e8f0',
-          display: 'flex',
-          justifyContent: 'flex-end',
-          gap: 8,
-        }}>
-          <button
-            onClick={onClose}
-            style={{
-              padding: '8px 16px',
-              borderRadius: 6,
-              border: '1px solid #e2e8f0',
-              background: 'white',
-              color: '#64748b',
-              fontSize: 13,
-              fontWeight: 500,
-              cursor: 'pointer',
-            }}
-          >
-            Close
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={isSaving}
-            style={{
-              padding: '8px 16px',
-              borderRadius: 6,
-              border: 'none',
-              background: isSaving ? '#94a3b8' : '#00293f',
-              color: 'white',
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: isSaving ? 'not-allowed' : 'pointer',
-            }}
-          >
-            {isSaving ? 'Saving...' : 'Save Changes'}
-          </button>
-        </div>
-      </div>
-    </Modal>
+      )}
+    </div>
   );
 };
