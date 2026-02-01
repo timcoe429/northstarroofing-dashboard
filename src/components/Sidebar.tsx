@@ -15,7 +15,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: Icons.Dashboard, href: '/' },
-  { id: 'projects', label: 'Projects', icon: Icons.Projects, href: '/projects' },
+  { id: 'projects', label: 'Projects', icon: Icons.Projects, href: '/boards' },
   { id: 'estimates', label: 'Estimates', icon: Icons.Estimates, href: '/estimates' },
   { id: 'customers', label: 'Customers', icon: Icons.Customers, href: '/customers' },
   { id: 'finances', label: 'Finances', icon: Icons.Finances, href: '/finances' },
@@ -43,7 +43,7 @@ export const Sidebar: React.FC = () => {
       {/* Navigation */}
       <nav style={{ flex: 1, padding: '16px 12px' }}>
         {navItems.map(item => {
-          const isActive = pathname === item.href;
+          const isActive = pathname === item.href || (item.id === 'projects' && pathname?.startsWith('/boards'));
           return (
             <Link
               key={item.id}
