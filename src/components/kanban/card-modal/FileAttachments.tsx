@@ -29,7 +29,12 @@ export const FileAttachments: React.FC<FileAttachmentsProps> = ({
     if (triggerUploadRef) {
       triggerUploadRef.current = handleUploadClick;
     }
-  }, [triggerUploadRef]);
+    return () => {
+      if (triggerUploadRef) {
+        triggerUploadRef.current = null;
+      }
+    };
+  }, []);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = e.target.files;

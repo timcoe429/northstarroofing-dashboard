@@ -124,7 +124,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
     if (card) {
       setSaveStates({});
     }
-  }, [card?.id]);
+  }, [card]);
 
   // Auto-save hooks for each field
   const titleAutoSave = useAutoSave(
@@ -147,11 +147,11 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
 
   const descriptionAutoSave = useAutoSave(
     card?.notes || '',
-    useCallback(async (value: string | null) => {
+    useCallback(async (value: string) => {
       if (!card) return;
       setSaveStates(prev => ({ ...prev, notes: 'saving' }));
       try {
-        await updateCard(card.id, { notes: value });
+        await updateCard(card.id, { notes: value || null });
         setSaveStates(prev => ({ ...prev, notes: 'saved' }));
         setTimeout(() => setSaveStates(prev => ({ ...prev, notes: 'idle' })), 2000);
       } catch (error) {
@@ -669,7 +669,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
               label="Description"
               value={descriptionAutoSave.value}
               type="textarea"
-              onChange={descriptionAutoSave.setValue}
+              onChange={(value) => descriptionAutoSave.setValue(typeof value === 'string' ? value : (value?.toString() || ''))}
               onSave={descriptionAutoSave.saveNow}
               placeholder="Add a more detailed description..."
               saveState={saveStates.notes}
