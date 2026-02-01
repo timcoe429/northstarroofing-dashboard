@@ -561,12 +561,14 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
         <div style={{
           flex: 1,
           overflowY: 'auto',
+          overflowX: 'hidden',
           display: 'flex',
           gap: 32,
           padding: 32,
+          boxSizing: 'border-box',
         }}>
-          {/* Left Side (60%) */}
-          <div style={{ flex: '0 0 60%', display: 'flex', flexDirection: 'column', gap: 32 }}>
+          {/* Left Side */}
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 32, boxSizing: 'border-box' }}>
             {/* Labels */}
             <div>
               <h3 style={{
@@ -957,8 +959,8 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
             />
           </div>
 
-          {/* Right Sidebar (40%) */}
-          <div style={{ flex: '0 0 40%', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 32, boxSizing: 'border-box' }}>
+          {/* Right Sidebar */}
+          <div style={{ width: 300, flexShrink: 0, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 32, boxSizing: 'border-box' }}>
             {/* Activity */}
             <ActivityFeed
               activities={activities}
