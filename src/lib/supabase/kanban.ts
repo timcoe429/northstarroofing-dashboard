@@ -206,9 +206,37 @@ export async function updateCard(
   const oldCard = await getCardById(cardId);
   if (!oldCard) throw new Error('Card not found');
 
+  // Filter out fields that aren't actual columns on the cards table
+  // Remove 'labels' and 'card_labels' which come from CardWithLabels but aren't columns
+  const validCardColumns = [
+    'column_id',
+    'position',
+    'address',
+    'job_type',
+    'client_name',
+    'client_phone',
+    'client_email',
+    'property_manager',
+    'notes',
+    'quote_amount',
+    'projected_cost',
+    'projected_profit',
+    'projected_commission',
+    'projected_office',
+    'priority',
+    'due_date',
+  ];
+  
+  const filteredUpdates: Partial<Card> = {};
+  for (const key in updates) {
+    if (validCardColumns.includes(key) && updates[key as keyof Card] !== undefined) {
+      filteredUpdates[key as keyof Card] = updates[key as keyof Card];
+    }
+  }
+
   const { data, error } = await supabase
     .from('cards')
-    .update(updates)
+    .update(filteredUpdates)
     .eq('id', cardId)
     .select()
     .single();
