@@ -345,6 +345,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
     try {
       await updateCardLabels(card.id, newLabelIds);
       await loadRelatedData(); // Refresh to ensure sync
+      onCardChange(); // Notify parent to refresh board cards
     } catch (error) {
       console.error('Error updating labels:', error);
       await loadRelatedData(); // Revert on error
@@ -571,7 +572,8 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
             minWidth: 0,
             overflowY: 'auto',
             overflowX: 'hidden',
-            padding: '24px 24px 32px 24px',
+            padding: '24px 32px 32px 24px',
+            scrollbarGutter: 'stable',
             display: 'flex',
             flexDirection: 'column',
             gap: 32,
@@ -974,7 +976,8 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
             minWidth: 460,
             overflowY: 'auto',
             overflowX: 'hidden',
-            padding: '24px 24px 32px 24px',
+            padding: '24px 32px 32px 24px',
+            scrollbarGutter: 'stable',
             borderLeft: '1px solid #091e4224',
             display: 'flex',
             flexDirection: 'column',
