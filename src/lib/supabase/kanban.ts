@@ -227,10 +227,10 @@ export async function updateCard(
     'due_date',
   ];
   
-  const filteredUpdates: Partial<Card> = {};
+  const filteredUpdates: Record<string, any> = {};
   for (const key in updates) {
     if (validCardColumns.includes(key) && updates[key as keyof Card] !== undefined) {
-      filteredUpdates[key as keyof Card] = updates[key as keyof Card];
+      filteredUpdates[key] = updates[key as keyof Card];
     }
   }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Modal } from '../Modal';
 import { LabelSelector } from './LabelSelector';
 import { FileUpload } from './FileUpload';
@@ -38,14 +38,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
   // Form state
   const [formData, setFormData] = useState<Partial<CardWithLabels>>({});
 
-  useEffect(() => {
-    if (card) {
-      setFormData(card);
-      loadRelatedData();
-    }
-  }, [card]);
-
-  const loadRelatedData = async () => {
+  const loadRelatedData = useCallback(async () => {
     if (!card) return;
     setIsLoading(true);
     try {
@@ -62,7 +55,14 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [card]);
+
+  useEffect(() => {
+    if (card) {
+      setFormData(card);
+      loadRelatedData();
+    }
+  }, [card, loadRelatedData]);
 
   const handleSave = async () => {
     if (!card) return;

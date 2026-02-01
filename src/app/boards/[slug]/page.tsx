@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { Sidebar } from '@/components/Sidebar';
 import { Header } from '@/components/Header';
@@ -24,11 +24,7 @@ export default function BoardViewPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    loadBoard();
-  }, [slug]);
-
-  const loadBoard = async () => {
+  const loadBoard = useCallback(async () => {
     setIsLoading(true);
     try {
       const boardData = await getBoardBySlug(slug);
@@ -45,7 +41,11 @@ export default function BoardViewPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [slug]);
+
+  useEffect(() => {
+    loadBoard();
+  }, [loadBoard]);
 
   const handleCardClick = async (cardId: string) => {
     try {
