@@ -180,10 +180,10 @@ export const Board: React.FC<BoardProps> = ({ columns, onCardClick, onAddCard, o
       <div style={{
         display: 'flex',
         flexWrap: 'nowrap',
-        overflowX: 'auto',
         padding: '16px 0',
         minHeight: 'calc(100vh - 120px)',
-        width: '100%',
+        width: 'max-content',
+        minWidth: `${localColumns.length * 296}px`, // 280px column + 16px margin
       }}>
         {localColumns.map(column => (
           <Column

@@ -130,6 +130,7 @@ export default function BoardViewPage() {
             minHeight: 'calc(100vh - 200px)',
             overflowX: 'auto',
             overflowY: 'visible',
+            width: '100%',
           }}>
             <Board
               columns={columns}
