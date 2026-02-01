@@ -246,18 +246,28 @@ export async function moveCard(
   newPosition: number
 ): Promise<void> {
   const card = await getCardById(cardId);
-  if (!card) throw new Error('Card not found');
+  if (!card) {
+    throw new Error('Card not found');
+  }
 
   const oldColumnId = card.column_id;
 
   // Get column names for activity
-  const { data: columns } = await supabase
+  const { data: columns, error: columnsError } = await supabase
     .from('columns')
     .select('id, name')
     .in('id', [oldColumnId, newColumnId]);
 
+  if (columnsError) {
+    throw new Error(`Failed to fetch column information: ${columnsError.message}`);
+  }
+
   const oldColumn = columns?.find(c => c.id === oldColumnId);
   const newColumn = columns?.find(c => c.id === newColumnId);
+
+  if (!newColumn) {
+    throw new Error('Target column not found');
+  }
 
   // Update card position
   const { error } = await supabase
@@ -268,10 +278,12 @@ export async function moveCard(
     })
     .eq('id', cardId);
 
-  if (error) throw error;
+  if (error) {
+    throw new Error(`Failed to move card: ${error.message}`);
+  }
 
-  // Log move activity
-  await createCardActivity(
+  // Log move activity (don't await - fire and forget for better performance)
+  createCardActivity(
     cardId,
     'moved',
     `Moved from ${oldColumn?.name || 'Unknown'} to ${newColumn?.name || 'Unknown'}`,
@@ -281,7 +293,10 @@ export async function moveCard(
       old_column_name: oldColumn?.name,
       new_column_name: newColumn?.name,
     }
-  );
+  ).catch(err => {
+    // Log activity errors but don't fail the move
+    console.error('Failed to log card activity:', err);
+  });
 }
 
 export async function deleteCard(cardId: string): Promise<void> {

@@ -133,7 +133,6 @@ export default function BoardViewPage() {
               columns={columns}
               onCardClick={handleCardClick}
               onAddCard={handleAddCard}
-              onCardsChange={handleCardChange}
             />
           </div>
         </div>
