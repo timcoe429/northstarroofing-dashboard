@@ -28,7 +28,7 @@ export const Column: React.FC<ColumnProps> = ({ column, onCardClick, onAddCard }
       style={{
         minWidth: 280,
         maxWidth: 280,
-        background: '#ebecf0',
+        background: '#f1f5f9',
         borderRadius: 8,
         padding: 12,
         marginRight: 16,

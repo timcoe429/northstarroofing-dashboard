@@ -46,6 +46,7 @@ export const Card: React.FC<CardProps> = ({ card, onClick }) => {
   };
 
   const isOverdue = card.due_date && new Date(card.due_date) < new Date();
+  const firstLabelColor = card.labels && card.labels.length > 0 ? card.labels[0].color : null;
 
   return (
     <div
@@ -60,7 +61,7 @@ export const Card: React.FC<CardProps> = ({ card, onClick }) => {
         borderRadius: 8,
         padding: 12,
         marginBottom: 10,
-        border: '1px solid #e2e8f0',
+        border: firstLabelColor ? `2px solid ${firstLabelColor}` : '1px solid #e2e8f0',
         borderLeft: isOverdue ? '3px solid #B1000F' : 'none',
         cursor: 'pointer',
         boxShadow: '0 1px 4px rgba(0, 0, 0, 0.15)',
