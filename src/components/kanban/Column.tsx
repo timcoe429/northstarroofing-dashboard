@@ -45,22 +45,22 @@ export const Column: React.FC<ColumnProps> = ({ column, onCardClick, onAddCard }
         alignItems: 'center',
         marginBottom: 8,
         paddingBottom: 12,
-        borderBottom: '1px solid #d1d5db',
+        borderBottom: '2px solid #00293f',
       }}>
         <h3 style={{
           margin: 0,
           fontSize: 14,
           fontWeight: 600,
-          color: '#00293f',
+          color: '#242424',
         }}>
           {column.name}
         </h3>
         <span style={{
           fontSize: 12,
-          color: '#64748b',
-          background: 'white',
+          color: 'white',
+          background: '#00293f',
           padding: '2px 8px',
-          borderRadius: 12,
+          borderRadius: 10,
           fontWeight: 500,
         }}>
           {column.cards.length}
@@ -103,8 +103,9 @@ export const Column: React.FC<ColumnProps> = ({ column, onCardClick, onAddCard }
             borderRadius: 6,
             border: '1px dashed #cbd5e1',
             background: 'white',
-            color: '#64748b',
+            color: '#00293f',
             fontSize: 12,
+            fontWeight: 500,
             cursor: 'pointer',
             transition: 'all 0.15s',
           }}
@@ -114,7 +115,7 @@ export const Column: React.FC<ColumnProps> = ({ column, onCardClick, onAddCard }
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.borderColor = '#cbd5e1';
-            e.currentTarget.style.color = '#64748b';
+            e.currentTarget.style.color = '#00293f';
           }}
         >
           + Add Card

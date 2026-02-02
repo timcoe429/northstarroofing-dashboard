@@ -45,6 +45,8 @@ export const Card: React.FC<CardProps> = ({ card, onClick }) => {
     }
   };
 
+  const isOverdue = card.due_date && new Date(card.due_date) < new Date();
+
   return (
     <div
       ref={setNodeRef}
@@ -59,15 +61,18 @@ export const Card: React.FC<CardProps> = ({ card, onClick }) => {
         padding: 12,
         marginBottom: 10,
         border: '1px solid #e2e8f0',
+        borderLeft: isOverdue ? '3px solid #B1000F' : 'none',
         cursor: 'pointer',
         boxShadow: '0 1px 4px rgba(0, 0, 0, 0.15)',
-        transition: 'box-shadow 0.15s',
+        transition: 'box-shadow 0.15s, border-color 0.15s',
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.2)';
+        e.currentTarget.style.borderColor = '#00293f';
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.boxShadow = '0 1px 4px rgba(0, 0, 0, 0.15)';
+        e.currentTarget.style.borderColor = '#e2e8f0';
       }}
     >
       {/* Priority indicator */}
@@ -90,7 +95,7 @@ export const Card: React.FC<CardProps> = ({ card, onClick }) => {
         margin: '0 0 8px 0',
         fontSize: 13,
         fontWeight: 600,
-        color: '#0f172a',
+        color: '#242424',
         lineHeight: 1.4,
       }}>
         {card.address}
@@ -153,7 +158,7 @@ export const Card: React.FC<CardProps> = ({ card, onClick }) => {
           <span style={{
             fontSize: 13,
             fontWeight: 600,
-            color: '#00293f',
+            color: '#242424',
           }}>
             {formatCurrency(card.quote_amount)}
           </span>
@@ -165,7 +170,8 @@ export const Card: React.FC<CardProps> = ({ card, onClick }) => {
         <div style={{ marginTop: 6 }}>
           <span style={{
             fontSize: 11,
-            color: '#64748b',
+            color: isOverdue ? '#B1000F' : '#64748b',
+            fontWeight: isOverdue ? 600 : 400,
           }}>
             Due: {new Date(card.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
           </span>
