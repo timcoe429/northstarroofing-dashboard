@@ -122,9 +122,9 @@ export default function BoardViewPage() {
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f1f5f9', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
       <Sidebar />
-      <main style={{ flex: 1, marginLeft: 220 }}>
+      <main style={{ flex: 1, marginLeft: 220, minWidth: 0 }}>
         <Header timeRange="6mo" />
-        <div style={{ padding: 24 }}>
+        <div style={{ padding: 24, overflow: 'hidden' }}>
           <div style={{ marginBottom: 20 }}>
             <h1 style={{ margin: '0 0 8px 0', fontSize: 28, fontWeight: 600, color: '#00293f' }}>
               {board.name}
@@ -145,6 +145,7 @@ export default function BoardViewPage() {
               overflowX: 'auto',
               overflowY: 'hidden',
               width: '100%',
+              maxWidth: '100%',
             }}
           >
             <Board
