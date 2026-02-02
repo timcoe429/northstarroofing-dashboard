@@ -72,6 +72,7 @@ export const Column: React.FC<ColumnProps> = ({ column, onCardClick, onAddCard }
         flex: 1,
         overflowY: 'auto',
         marginBottom: 12,
+        paddingRight: 8,
       }}>
         <SortableContext items={cardIds} strategy={verticalListSortingStrategy}>
           {column.cards.map(card => (

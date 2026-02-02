@@ -693,96 +693,34 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
               }}>
                 Add to Card
               </h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <button
-                  onClick={(e) => {
-                    setLabelPickerAnchor(e.currentTarget);
-                    setShowLabelPicker(true);
-                  }}
-                  style={{
-                    padding: '8px 12px',
-                    borderRadius: 6,
-                    border: '1px solid #dfe1e6',
-                    background: '#ffffff',
-                    color: '#172b4d',
-                    fontSize: 14,
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = '#f4f5f7';
-                    e.currentTarget.style.borderColor = '#c1c7d0';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = '#ffffff';
-                    e.currentTarget.style.borderColor = '#dfe1e6';
-                  }}
-                >
-                  <span>🏷️</span>
-                  <span>Labels</span>
-                </button>
-                <button
-                  onClick={() => {
-                    fileUploadTriggerRef.current?.();
-                  }}
-                  style={{
-                    padding: '8px 12px',
-                    borderRadius: 6,
-                    border: '1px solid #dfe1e6',
-                    background: '#ffffff',
-                    color: '#172b4d',
-                    fontSize: 14,
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = '#f4f5f7';
-                    e.currentTarget.style.borderColor = '#c1c7d0';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = '#ffffff';
-                    e.currentTarget.style.borderColor = '#dfe1e6';
-                  }}
-                >
-                  <span>📎</span>
-                  <span>Attachments</span>
-                </button>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {/* Due Date */}
                 <div style={{ position: 'relative' }}>
-                  <button
+                  <div
                     ref={dueDateButtonRef}
                     onClick={() => setShowDueDatePicker(!showDueDatePicker)}
                     style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      borderRadius: 6,
-                      border: '1px solid #dfe1e6',
-                      background: '#ffffff',
-                      color: '#172b4d',
-                      fontSize: 14,
-                      textAlign: 'left',
-                      cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: 8,
+                      justifyContent: 'space-between',
+                      padding: '8px 0',
+                      cursor: 'pointer',
+                      borderBottom: '1px solid #f1f5f9',
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.background = '#f4f5f7';
-                      e.currentTarget.style.borderColor = '#c1c7d0';
+                      e.currentTarget.style.background = '#f8f9fa';
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.background = '#ffffff';
-                      e.currentTarget.style.borderColor = '#dfe1e6';
+                      e.currentTarget.style.background = 'transparent';
                     }}
                   >
-                    <span>📅</span>
-                    <span>Due Date</span>
-                  </button>
+                    <span style={{ color: '#64748b', fontSize: 14 }}>📅 Due Date</span>
+                    <span style={{ color: '#242424', fontSize: 14 }}>
+                      {card.due_date 
+                        ? new Date(card.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                        : 'None'}
+                    </span>
+                  </div>
                   {showDueDatePicker && (
                     <div style={{
                       position: 'absolute',
@@ -827,36 +765,32 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
                     </div>
                   )}
                 </div>
+
+                {/* Priority */}
                 <div style={{ position: 'relative' }}>
-                  <button
+                  <div
                     ref={priorityButtonRef}
                     onClick={() => setShowPriorityDropdown(!showPriorityDropdown)}
                     style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      borderRadius: 6,
-                      border: '1px solid #dfe1e6',
-                      background: '#ffffff',
-                      color: '#172b4d',
-                      fontSize: 14,
-                      textAlign: 'left',
-                      cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: 8,
+                      justifyContent: 'space-between',
+                      padding: '8px 0',
+                      cursor: 'pointer',
+                      borderBottom: '1px solid #f1f5f9',
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.background = '#f4f5f7';
-                      e.currentTarget.style.borderColor = '#c1c7d0';
+                      e.currentTarget.style.background = '#f8f9fa';
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.background = '#ffffff';
-                      e.currentTarget.style.borderColor = '#dfe1e6';
+                      e.currentTarget.style.background = 'transparent';
                     }}
                   >
-                    <span>⚡</span>
-                    <span>Priority</span>
-                  </button>
+                    <span style={{ color: '#64748b', fontSize: 14 }}>⚡ Priority</span>
+                    <span style={{ color: '#242424', fontSize: 14 }}>
+                      {card.priority ? card.priority.charAt(0).toUpperCase() + card.priority.slice(1) : 'None'}
+                    </span>
+                  </div>
                   {showPriorityDropdown && (
                     <div style={{
                       position: 'absolute',
@@ -899,6 +833,32 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
                       ))}
                     </div>
                   )}
+                </div>
+
+                {/* Attachments */}
+                <div
+                  onClick={() => {
+                    fileUploadTriggerRef.current?.();
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '8px 0',
+                    cursor: 'pointer',
+                    borderBottom: '1px solid #f1f5f9',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#f8f9fa';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'transparent';
+                  }}
+                >
+                  <span style={{ color: '#64748b', fontSize: 14 }}>📎 Attachments</span>
+                  <span style={{ color: '#242424', fontSize: 14 }}>
+                    {files.length > 0 ? `${files.length} file${files.length !== 1 ? 's' : ''}` : 'None'}
+                  </span>
                 </div>
               </div>
             </div>
