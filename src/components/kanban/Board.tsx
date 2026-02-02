@@ -37,7 +37,6 @@ export const Board: React.FC<BoardProps> = ({ columns, onCardClick, onAddCard, o
   
   // Ref for columns wrapper div
   const boardRef = useRef<HTMLDivElement>(null);
-  const debugCounterRef = useRef(0);
 
   // Sync local state when columns prop changes (e.g., after adding a card)
   useEffect(() => {
@@ -167,80 +166,48 @@ export const Board: React.FC<BoardProps> = ({ columns, onCardClick, onAddCard, o
 
   // Panning handlers
   const handleMouseDown = (e: React.MouseEvent) => {
-    console.log('handleMouseDown triggered', { 
-      target: e.target,
-      pageX: e.pageX,
-      pageY: e.pageY 
-    });
-    
     const target = e.target as HTMLElement;
     
-    // Diagnostic logging
+    // Diagnostic checks
     const isOnCard = !!(target.closest('[style*="background: white"]') && target.closest('[style*="border-radius: 8"]'));
     const isOnButton = !!target.closest('button');
     const isOnColumn = target.closest('[style*="background: #f8fafc"]') !== null;
     const isOnHeader = !!target.closest('h3');
     const isOnCardsContainer = !!target.closest('[style*="flex: 1"]');
     
-    console.log('mousedown', { 
-      target: e.target, 
-      targetTag: target.tagName,
-      targetClasses: target.className,
-      isOnCard,
-      isOnButton,
-      isOnColumn,
-      isOnHeader,
-      isOnCardsContainer,
-      activeCard: !!activeCard,
-    });
-    
     // Don't start panning if a card is being dragged
     if (activeCard) {
-      console.log('Panning blocked: card is being dragged');
       return;
     }
     
     // Check if clicking on interactive elements (buttons, links, inputs, etc.)
     if (isOnButton || target.closest('a, input, select, textarea, [role="button"]')) {
-      console.log('Panning blocked: clicking on interactive element');
       return;
     }
     
     // Block cards (they have dnd-kit drag handlers)
     if (isOnCard) {
-      console.log('Panning blocked: clicking on card');
       return;
     }
     
     // Helper function to find scroll container and start panning
     const startPanning = () => {
       if (!boardRef.current) {
-        console.log('startPanning: boardRef.current is null');
         return;
       }
       
       setIsPanning(true);
-      console.log('isPanning set to true');
       
       // Find container via data attribute first
       let scrollContainer: HTMLElement | null = (e.target as HTMLElement).closest('[data-board-scroll-container="true"]') as HTMLElement;
       
       // Fallback to overflow detection if data attribute not found
-      const checkedElements: Array<{element: HTMLElement, overflowX: string, overflow: string, tagName: string, className: string}> = [];
       if (!scrollContainer && boardRef.current) {
-        console.log('Warning: data-board-scroll-container not found, falling back to overflow detection');
         scrollContainer = boardRef.current.parentElement;
         
         // Traverse up to find the element with overflow-x: auto
         while (scrollContainer && scrollContainer !== document.body) {
           const style = window.getComputedStyle(scrollContainer);
-          checkedElements.push({
-            element: scrollContainer,
-            overflowX: style.overflowX,
-            overflow: style.overflow,
-            tagName: scrollContainer.tagName,
-            className: scrollContainer.className
-          });
           if (style.overflowX === 'auto' || style.overflowX === 'scroll' || 
               style.overflow === 'auto' || style.overflow === 'scroll') {
             break;
@@ -249,33 +216,13 @@ export const Board: React.FC<BoardProps> = ({ columns, onCardClick, onAddCard, o
         }
       }
       
-      console.log('Scrollable parent search:', {
-        foundViaDataAttribute: !!(e.target as HTMLElement).closest('[data-board-scroll-container="true"]'),
-        checkedElements: checkedElements.length > 0 ? checkedElements : undefined,
-        found: !!scrollContainer,
-        scrollContainer: scrollContainer || null,
-        scrollContainerTag: scrollContainer?.tagName,
-        scrollContainerClasses: scrollContainer?.className,
-        hasDataAttribute: scrollContainer?.hasAttribute('data-board-scroll-container')
-      });
-      
       if (scrollContainer) {
         setStartX(e.pageX);
         setStartY(e.pageY);
         setScrollLeft(scrollContainer.scrollLeft);
         setScrollTop(scrollContainer.scrollTop);
-        console.log('Panning started', { 
-          scrollContainer, 
-          scrollLeft: scrollContainer.scrollLeft,
-          scrollTop: scrollContainer.scrollTop,
-          containerTag: scrollContainer.tagName,
-          containerClasses: scrollContainer.className,
-          startX: e.pageX,
-          startY: e.pageY
-        });
         e.preventDefault();
       } else {
-        console.log('Panning blocked: no scroll container found');
         setIsPanning(false);
       }
     };
@@ -287,11 +234,7 @@ export const Board: React.FC<BoardProps> = ({ columns, onCardClick, onAddCard, o
       // Check if clicking on column header or cards container - don't pan
       // But allow panning on the column background itself (empty space)
       if (!isOnHeader && !isOnCardsContainer) {
-        // Clicking on column background - allow panning
-        console.log('Panning allowed: clicking on column background');
         startPanning();
-      } else {
-        console.log('Panning blocked: clicking on column header or cards container');
       }
       return;
     }
@@ -299,50 +242,26 @@ export const Board: React.FC<BoardProps> = ({ columns, onCardClick, onAddCard, o
     // Allow panning on board background (between columns or padding)
     if (target === boardRef.current || 
         (boardRef.current && boardRef.current.contains(target))) {
-      console.log('Panning allowed: clicking on board background');
       startPanning();
-    } else {
-      console.log('Panning blocked: target not on board');
     }
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isPanning || !boardRef.current) {
-      if (isPanning && !boardRef.current) {
-        console.log('handleMouseMove: isPanning is true but boardRef.current is null');
-      }
       return;
     }
-    
-    console.log('handleMouseMove triggered', {
-      isPanning,
-      pageX: e.pageX,
-      pageY: e.pageY,
-      startX,
-      startY
-    });
     
     e.preventDefault();
     
     // Find container via data attribute first
-    console.log('handleMouseMove: Finding scrollable container...');
     let scrollContainer: HTMLElement | null = (e.target as HTMLElement).closest('[data-board-scroll-container="true"]') as HTMLElement;
     
     // Fallback to overflow detection if data attribute not found
-    const checkedElements: Array<{element: HTMLElement, overflowX: string, overflow: string, tagName: string, className: string}> = [];
     if (!scrollContainer && boardRef.current) {
-      console.log('handleMouseMove: Warning: data-board-scroll-container not found, falling back to overflow detection');
       scrollContainer = boardRef.current.parentElement;
       
       while (scrollContainer && scrollContainer !== document.body) {
         const style = window.getComputedStyle(scrollContainer);
-        checkedElements.push({
-          element: scrollContainer,
-          overflowX: style.overflowX,
-          overflow: style.overflow,
-          tagName: scrollContainer.tagName,
-          className: scrollContainer.className
-        });
         if (style.overflowX === 'auto' || style.overflowX === 'scroll' || 
             style.overflow === 'auto' || style.overflow === 'scroll') {
           break;
@@ -351,62 +270,22 @@ export const Board: React.FC<BoardProps> = ({ columns, onCardClick, onAddCard, o
       }
     }
     
-    console.log('handleMouseMove: Scrollable container search:', {
-      foundViaDataAttribute: !!(e.target as HTMLElement).closest('[data-board-scroll-container="true"]'),
-      checkedElements: checkedElements.length > 0 ? checkedElements : undefined,
-      found: !!scrollContainer,
-      hasDataAttribute: scrollContainer?.hasAttribute('data-board-scroll-container')
-    });
-    
     if (scrollContainer) {
       const x = e.pageX;
       const y = e.pageY;
       const walkX = (x - startX) * 1.5; // Multiply for faster scroll
       const walkY = (y - startY) * 1.5;
-      const scrollLeftBefore = scrollContainer.scrollLeft;
-      const scrollTopBefore = scrollContainer.scrollTop;
-      
-      // Detailed scroll debugging (every 20 calls)
-      debugCounterRef.current++;
-      if (debugCounterRef.current % 20 === 0) {
-        console.log('Scroll debug:', {
-          scrollWidth: scrollContainer.scrollWidth,
-          clientWidth: scrollContainer.clientWidth,
-          canScroll: scrollContainer.scrollWidth > scrollContainer.clientWidth,
-          maxScrollLeft: scrollContainer.scrollWidth - scrollContainer.clientWidth,
-          currentScrollLeft: scrollContainer.scrollLeft,
-          walkX,
-          attemptingToSetTo: scrollLeft - walkX
-        });
-      }
       
       scrollContainer.scrollLeft = scrollLeft - walkX;
       scrollContainer.scrollTop = scrollTop - walkY;
-      
-      console.log('handleMouseMove: Scroll updated', {
-        scrollLeftBefore,
-        scrollLeftAfter: scrollContainer.scrollLeft,
-        scrollTopBefore,
-        scrollTopAfter: scrollContainer.scrollTop,
-        walkX,
-        walkY,
-        deltaX: x - startX,
-        deltaY: y - startY,
-        storedScrollLeft: scrollLeft,
-        storedScrollTop: scrollTop
-      });
-    } else {
-      console.log('handleMouseMove: No scrollable container found');
     }
   };
 
   const handleMouseUp = () => {
-    console.log('handleMouseUp: Panning ended', { wasPanning: isPanning });
     setIsPanning(false);
   };
 
   const handleMouseLeave = () => {
-    console.log('handleMouseLeave: Panning ended', { wasPanning: isPanning });
     setIsPanning(false);
   };
 
