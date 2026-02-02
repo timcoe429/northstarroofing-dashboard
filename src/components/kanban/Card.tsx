@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { CardWithLabels } from '@/types/kanban';
@@ -11,6 +11,8 @@ interface CardProps {
 }
 
 export const Card: React.FC<CardProps> = ({ card, onClick }) => {
+  const [isHovered, setIsHovered] = useState(false);
+  
   const {
     attributes,
     listeners,
@@ -54,26 +56,19 @@ export const Card: React.FC<CardProps> = ({ card, onClick }) => {
       {...attributes}
       {...listeners}
       onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       style={{
         ...style,
         position: 'relative',
-        background: 'white',
+        background: isHovered ? `${firstLabelColor || '#00293f'}20` : 'white',
         borderRadius: 8,
         padding: 12,
         marginBottom: 10,
         border: firstLabelColor ? `2px solid ${firstLabelColor}` : '1px solid #e2e8f0',
-        borderLeft: isOverdue ? '3px solid #B1000F' : 'none',
+        borderLeft: isOverdue ? '3px solid #B1000F' : undefined,
         cursor: 'pointer',
-        boxShadow: '0 1px 4px rgba(0, 0, 0, 0.15)',
-        transition: 'box-shadow 0.15s, border-color 0.15s',
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.2)';
-        e.currentTarget.style.borderColor = '#00293f';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.boxShadow = '0 1px 4px rgba(0, 0, 0, 0.15)';
-        e.currentTarget.style.borderColor = '#e2e8f0';
+        transition: 'background 0.15s',
       }}
     >
       {/* Priority indicator */}
