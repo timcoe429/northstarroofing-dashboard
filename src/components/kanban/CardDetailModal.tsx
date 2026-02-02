@@ -61,8 +61,8 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
   // Refs
   const modalRef = useRef<HTMLDivElement>(null);
   const moveButtonRef = useRef<HTMLButtonElement>(null);
-  const priorityButtonRef = useRef<HTMLButtonElement>(null);
-  const dueDateButtonRef = useRef<HTMLButtonElement>(null);
+  const priorityButtonRef = useRef<HTMLDivElement>(null);
+  const dueDateButtonRef = useRef<HTMLDivElement>(null);
   const fileUploadTriggerRef = useRef<(() => void) | null>(null);
 
   // Helper function to update card in board state after database update
