@@ -166,6 +166,12 @@ export const Board: React.FC<BoardProps> = ({ columns, onCardClick, onAddCard, o
 
   // Panning handlers
   const handleMouseDown = (e: React.MouseEvent) => {
+    console.log('handleMouseDown triggered', { 
+      target: e.target,
+      pageX: e.pageX,
+      pageY: e.pageY 
+    });
+    
     const target = e.target as HTMLElement;
     
     // Diagnostic logging
@@ -207,15 +213,28 @@ export const Board: React.FC<BoardProps> = ({ columns, onCardClick, onAddCard, o
     
     // Helper function to find scroll container and start panning
     const startPanning = () => {
-      if (!boardRef.current) return;
+      if (!boardRef.current) {
+        console.log('startPanning: boardRef.current is null');
+        return;
+      }
       
       setIsPanning(true);
+      console.log('isPanning set to true');
+      
       // Find scrollable parent container
       let scrollContainer: HTMLElement | null = boardRef.current.parentElement;
       
       // Traverse up to find the element with overflow-x: auto
+      const checkedElements: Array<{element: HTMLElement, overflowX: string, overflow: string, tagName: string, className: string}> = [];
       while (scrollContainer && scrollContainer !== document.body) {
         const style = window.getComputedStyle(scrollContainer);
+        checkedElements.push({
+          element: scrollContainer,
+          overflowX: style.overflowX,
+          overflow: style.overflow,
+          tagName: scrollContainer.tagName,
+          className: scrollContainer.className
+        });
         if (style.overflowX === 'auto' || style.overflowX === 'scroll' || 
             style.overflow === 'auto' || style.overflow === 'scroll') {
           break;
@@ -223,12 +242,28 @@ export const Board: React.FC<BoardProps> = ({ columns, onCardClick, onAddCard, o
         scrollContainer = scrollContainer.parentElement;
       }
       
+      console.log('Scrollable parent search:', {
+        checkedElements,
+        found: !!scrollContainer,
+        scrollContainer: scrollContainer || null,
+        scrollContainerTag: scrollContainer?.tagName,
+        scrollContainerClasses: scrollContainer?.className
+      });
+      
       if (scrollContainer) {
         setStartX(e.pageX);
         setStartY(e.pageY);
         setScrollLeft(scrollContainer.scrollLeft);
         setScrollTop(scrollContainer.scrollTop);
-        console.log('Panning started', { scrollContainer, scrollLeft: scrollContainer.scrollLeft });
+        console.log('Panning started', { 
+          scrollContainer, 
+          scrollLeft: scrollContainer.scrollLeft,
+          scrollTop: scrollContainer.scrollTop,
+          containerTag: scrollContainer.tagName,
+          containerClasses: scrollContainer.className,
+          startX: e.pageX,
+          startY: e.pageY
+        });
         e.preventDefault();
       } else {
         console.log('Panning blocked: no scroll container found');
@@ -263,14 +298,36 @@ export const Board: React.FC<BoardProps> = ({ columns, onCardClick, onAddCard, o
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isPanning || !boardRef.current) return;
+    if (!isPanning || !boardRef.current) {
+      if (isPanning && !boardRef.current) {
+        console.log('handleMouseMove: isPanning is true but boardRef.current is null');
+      }
+      return;
+    }
+    
+    console.log('handleMouseMove triggered', {
+      isPanning,
+      pageX: e.pageX,
+      pageY: e.pageY,
+      startX,
+      startY
+    });
     
     e.preventDefault();
     
     // Find scrollable parent container
+    console.log('handleMouseMove: Finding scrollable container...');
     let scrollContainer: HTMLElement | null = boardRef.current.parentElement;
+    const checkedElements: Array<{element: HTMLElement, overflowX: string, overflow: string, tagName: string, className: string}> = [];
     while (scrollContainer && scrollContainer !== document.body) {
       const style = window.getComputedStyle(scrollContainer);
+      checkedElements.push({
+        element: scrollContainer,
+        overflowX: style.overflowX,
+        overflow: style.overflow,
+        tagName: scrollContainer.tagName,
+        className: scrollContainer.className
+      });
       if (style.overflowX === 'auto' || style.overflowX === 'scroll' || 
           style.overflow === 'auto' || style.overflow === 'scroll') {
         break;
@@ -278,21 +335,46 @@ export const Board: React.FC<BoardProps> = ({ columns, onCardClick, onAddCard, o
       scrollContainer = scrollContainer.parentElement;
     }
     
+    console.log('handleMouseMove: Scrollable container search:', {
+      checkedElements,
+      found: !!scrollContainer
+    });
+    
     if (scrollContainer) {
       const x = e.pageX;
       const y = e.pageY;
       const walkX = (x - startX) * 1.5; // Multiply for faster scroll
       const walkY = (y - startY) * 1.5;
+      const scrollLeftBefore = scrollContainer.scrollLeft;
+      const scrollTopBefore = scrollContainer.scrollTop;
+      
       scrollContainer.scrollLeft = scrollLeft - walkX;
       scrollContainer.scrollTop = scrollTop - walkY;
+      
+      console.log('handleMouseMove: Scroll updated', {
+        scrollLeftBefore,
+        scrollLeftAfter: scrollContainer.scrollLeft,
+        scrollTopBefore,
+        scrollTopAfter: scrollContainer.scrollTop,
+        walkX,
+        walkY,
+        deltaX: x - startX,
+        deltaY: y - startY,
+        storedScrollLeft: scrollLeft,
+        storedScrollTop: scrollTop
+      });
+    } else {
+      console.log('handleMouseMove: No scrollable container found');
     }
   };
 
   const handleMouseUp = () => {
+    console.log('handleMouseUp: Panning ended', { wasPanning: isPanning });
     setIsPanning(false);
   };
 
   const handleMouseLeave = () => {
+    console.log('handleMouseLeave: Panning ended', { wasPanning: isPanning });
     setIsPanning(false);
   };
 
