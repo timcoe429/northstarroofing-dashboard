@@ -37,6 +37,7 @@ export const Board: React.FC<BoardProps> = ({ columns, onCardClick, onAddCard, o
   
   // Ref for columns wrapper div
   const boardRef = useRef<HTMLDivElement>(null);
+  const debugCounterRef = useRef(0);
 
   // Sync local state when columns prop changes (e.g., after adding a card)
   useEffect(() => {
@@ -364,6 +365,20 @@ export const Board: React.FC<BoardProps> = ({ columns, onCardClick, onAddCard, o
       const walkY = (y - startY) * 1.5;
       const scrollLeftBefore = scrollContainer.scrollLeft;
       const scrollTopBefore = scrollContainer.scrollTop;
+      
+      // Detailed scroll debugging (every 20 calls)
+      debugCounterRef.current++;
+      if (debugCounterRef.current % 20 === 0) {
+        console.log('Scroll debug:', {
+          scrollWidth: scrollContainer.scrollWidth,
+          clientWidth: scrollContainer.clientWidth,
+          canScroll: scrollContainer.scrollWidth > scrollContainer.clientWidth,
+          maxScrollLeft: scrollContainer.scrollWidth - scrollContainer.clientWidth,
+          currentScrollLeft: scrollContainer.scrollLeft,
+          walkX,
+          attemptingToSetTo: scrollLeft - walkX
+        });
+      }
       
       scrollContainer.scrollLeft = scrollLeft - walkX;
       scrollContainer.scrollTop = scrollTop - walkY;
