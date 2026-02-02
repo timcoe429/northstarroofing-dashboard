@@ -28,7 +28,7 @@ export const Column: React.FC<ColumnProps> = ({ column, onCardClick, onAddCard }
       style={{
         minWidth: 280,
         maxWidth: 280,
-        background: '#f8fafc',
+        background: '#ebecf0',
         borderRadius: 8,
         padding: 12,
         marginRight: 16,
@@ -43,9 +43,9 @@ export const Column: React.FC<ColumnProps> = ({ column, onCardClick, onAddCard }
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 12,
-        paddingBottom: 8,
-        borderBottom: `2px solid ${column.color || '#e2e8f0'}`,
+        marginBottom: 8,
+        paddingBottom: 12,
+        borderBottom: '1px solid #d1d5db',
       }}>
         <h3 style={{
           margin: 0,

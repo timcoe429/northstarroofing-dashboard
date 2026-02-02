@@ -57,17 +57,17 @@ export const Card: React.FC<CardProps> = ({ card, onClick }) => {
         background: 'white',
         borderRadius: 8,
         padding: 12,
-        marginBottom: 8,
+        marginBottom: 10,
         border: '1px solid #e2e8f0',
         cursor: 'pointer',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+        boxShadow: '0 1px 4px rgba(0, 0, 0, 0.15)',
         transition: 'box-shadow 0.15s',
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
+        e.currentTarget.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.2)';
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+        e.currentTarget.style.boxShadow = '0 1px 4px rgba(0, 0, 0, 0.15)';
       }}
     >
       {/* Priority indicator */}

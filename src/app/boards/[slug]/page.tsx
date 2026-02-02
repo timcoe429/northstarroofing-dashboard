@@ -137,7 +137,7 @@ export default function BoardViewPage() {
           <div 
             data-board-scroll-container="true"
             style={{ 
-              background: 'white', 
+              background: '#f8f9fa', 
               borderRadius: 12, 
               border: '1px solid #e2e8f0',
               padding: 16,
