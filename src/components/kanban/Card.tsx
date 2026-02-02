@@ -61,12 +61,15 @@ export const Card: React.FC<CardProps> = ({ card, onClick }) => {
       style={{
         ...style,
         position: 'relative',
-        background: isHovered ? `${firstLabelColor || '#00293f'}20` : 'white',
+        background: isHovered 
+          ? `${isOverdue ? '#B1000F' : (firstLabelColor || '#00293f')}20` 
+          : 'white',
         borderRadius: 8,
         padding: 12,
         marginBottom: 10,
-        border: firstLabelColor ? `2px solid ${firstLabelColor}` : '1px solid #e2e8f0',
-        borderLeft: isOverdue ? '3px solid #B1000F' : undefined,
+        border: isOverdue 
+          ? '3px solid #B1000F' 
+          : (firstLabelColor ? `2px solid ${firstLabelColor}` : '1px solid #e2e8f0'),
         cursor: 'pointer',
         transition: 'background 0.15s',
       }}
