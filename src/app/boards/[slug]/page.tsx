@@ -134,16 +134,19 @@ export default function BoardViewPage() {
             </p>
           </div>
 
-          <div style={{ 
-            background: 'white', 
-            borderRadius: 12, 
-            border: '1px solid #e2e8f0',
-            padding: 16,
-            minHeight: 'calc(100vh - 200px)',
-            overflowX: 'auto',
-            overflowY: 'visible',
-            width: '100%',
-          }}>
+          <div 
+            data-board-scroll-container="true"
+            style={{ 
+              background: 'white', 
+              borderRadius: 12, 
+              border: '1px solid #e2e8f0',
+              padding: 16,
+              minHeight: 'calc(100vh - 200px)',
+              overflowX: 'auto',
+              overflowY: 'hidden',
+              width: '100%',
+            }}
+          >
             <Board
               columns={columns}
               onCardClick={handleCardClick}

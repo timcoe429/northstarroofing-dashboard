@@ -221,33 +221,41 @@ export const Board: React.FC<BoardProps> = ({ columns, onCardClick, onAddCard, o
       setIsPanning(true);
       console.log('isPanning set to true');
       
-      // Find scrollable parent container
-      let scrollContainer: HTMLElement | null = boardRef.current.parentElement;
+      // Find container via data attribute first
+      let scrollContainer: HTMLElement | null = (e.target as HTMLElement).closest('[data-board-scroll-container="true"]') as HTMLElement;
       
-      // Traverse up to find the element with overflow-x: auto
+      // Fallback to overflow detection if data attribute not found
       const checkedElements: Array<{element: HTMLElement, overflowX: string, overflow: string, tagName: string, className: string}> = [];
-      while (scrollContainer && scrollContainer !== document.body) {
-        const style = window.getComputedStyle(scrollContainer);
-        checkedElements.push({
-          element: scrollContainer,
-          overflowX: style.overflowX,
-          overflow: style.overflow,
-          tagName: scrollContainer.tagName,
-          className: scrollContainer.className
-        });
-        if (style.overflowX === 'auto' || style.overflowX === 'scroll' || 
-            style.overflow === 'auto' || style.overflow === 'scroll') {
-          break;
+      if (!scrollContainer && boardRef.current) {
+        console.log('Warning: data-board-scroll-container not found, falling back to overflow detection');
+        scrollContainer = boardRef.current.parentElement;
+        
+        // Traverse up to find the element with overflow-x: auto
+        while (scrollContainer && scrollContainer !== document.body) {
+          const style = window.getComputedStyle(scrollContainer);
+          checkedElements.push({
+            element: scrollContainer,
+            overflowX: style.overflowX,
+            overflow: style.overflow,
+            tagName: scrollContainer.tagName,
+            className: scrollContainer.className
+          });
+          if (style.overflowX === 'auto' || style.overflowX === 'scroll' || 
+              style.overflow === 'auto' || style.overflow === 'scroll') {
+            break;
+          }
+          scrollContainer = scrollContainer.parentElement;
         }
-        scrollContainer = scrollContainer.parentElement;
       }
       
       console.log('Scrollable parent search:', {
-        checkedElements,
+        foundViaDataAttribute: !!(e.target as HTMLElement).closest('[data-board-scroll-container="true"]'),
+        checkedElements: checkedElements.length > 0 ? checkedElements : undefined,
         found: !!scrollContainer,
         scrollContainer: scrollContainer || null,
         scrollContainerTag: scrollContainer?.tagName,
-        scrollContainerClasses: scrollContainer?.className
+        scrollContainerClasses: scrollContainer?.className,
+        hasDataAttribute: scrollContainer?.hasAttribute('data-board-scroll-container')
       });
       
       if (scrollContainer) {
@@ -315,29 +323,38 @@ export const Board: React.FC<BoardProps> = ({ columns, onCardClick, onAddCard, o
     
     e.preventDefault();
     
-    // Find scrollable parent container
+    // Find container via data attribute first
     console.log('handleMouseMove: Finding scrollable container...');
-    let scrollContainer: HTMLElement | null = boardRef.current.parentElement;
+    let scrollContainer: HTMLElement | null = (e.target as HTMLElement).closest('[data-board-scroll-container="true"]') as HTMLElement;
+    
+    // Fallback to overflow detection if data attribute not found
     const checkedElements: Array<{element: HTMLElement, overflowX: string, overflow: string, tagName: string, className: string}> = [];
-    while (scrollContainer && scrollContainer !== document.body) {
-      const style = window.getComputedStyle(scrollContainer);
-      checkedElements.push({
-        element: scrollContainer,
-        overflowX: style.overflowX,
-        overflow: style.overflow,
-        tagName: scrollContainer.tagName,
-        className: scrollContainer.className
-      });
-      if (style.overflowX === 'auto' || style.overflowX === 'scroll' || 
-          style.overflow === 'auto' || style.overflow === 'scroll') {
-        break;
+    if (!scrollContainer && boardRef.current) {
+      console.log('handleMouseMove: Warning: data-board-scroll-container not found, falling back to overflow detection');
+      scrollContainer = boardRef.current.parentElement;
+      
+      while (scrollContainer && scrollContainer !== document.body) {
+        const style = window.getComputedStyle(scrollContainer);
+        checkedElements.push({
+          element: scrollContainer,
+          overflowX: style.overflowX,
+          overflow: style.overflow,
+          tagName: scrollContainer.tagName,
+          className: scrollContainer.className
+        });
+        if (style.overflowX === 'auto' || style.overflowX === 'scroll' || 
+            style.overflow === 'auto' || style.overflow === 'scroll') {
+          break;
+        }
+        scrollContainer = scrollContainer.parentElement;
       }
-      scrollContainer = scrollContainer.parentElement;
     }
     
     console.log('handleMouseMove: Scrollable container search:', {
-      checkedElements,
-      found: !!scrollContainer
+      foundViaDataAttribute: !!(e.target as HTMLElement).closest('[data-board-scroll-container="true"]'),
+      checkedElements: checkedElements.length > 0 ? checkedElements : undefined,
+      found: !!scrollContainer,
+      hasDataAttribute: scrollContainer?.hasAttribute('data-board-scroll-container')
     });
     
     if (scrollContainer) {
