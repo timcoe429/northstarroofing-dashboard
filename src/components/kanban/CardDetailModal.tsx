@@ -9,6 +9,7 @@ import {
   getCardActivities, 
   getCardFiles,
   getCardLabels,
+  getCardById,
   addComment,
   deleteCard,
   moveCard,
@@ -27,6 +28,7 @@ interface CardDetailModalProps {
   card: CardWithLabels | null;
   columns: Column[];
   onCardChange: () => void;
+  onCardUpdate?: (cardId: string, updatedCard: CardWithLabels) => void;
 }
 
 export const CardDetailModal: React.FC<CardDetailModalProps> = ({
@@ -35,6 +37,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
   card,
   columns,
   onCardChange,
+  onCardUpdate,
 }) => {
   // Data state
   const [allLabels, setAllLabels] = useState<Label[]>([]);
@@ -61,7 +64,19 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
   const priorityButtonRef = useRef<HTMLButtonElement>(null);
   const dueDateButtonRef = useRef<HTMLButtonElement>(null);
   const fileUploadTriggerRef = useRef<(() => void) | null>(null);
-  const hasChangesRef = useRef(false);
+
+  // Helper function to update card in board state after database update
+  const updateCardInBoardState = useCallback(async (cardId: string) => {
+    if (!onCardUpdate) return;
+    try {
+      const updatedCard = await getCardById(cardId);
+      if (updatedCard) {
+        onCardUpdate(cardId, updatedCard);
+      }
+    } catch (error) {
+      console.error('Error fetching updated card for board state:', error);
+    }
+  }, [onCardUpdate]);
 
   // Load related data
   const loadRelatedData = useCallback(async () => {
@@ -88,7 +103,6 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
   useEffect(() => {
     if (card && isOpen) {
       loadRelatedData();
-      hasChangesRef.current = false; // Reset changes tracking when modal opens with a card
     }
   }, [card, isOpen, loadRelatedData]);
 
@@ -96,17 +110,8 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
   useEffect(() => {
     if (card) {
       setSaveStates({});
-      hasChangesRef.current = false; // Reset changes tracking when card changes
     }
   }, [card]);
-
-  // Wrapper for onClose that checks if changes were made
-  const handleClose = useCallback(() => {
-    if (hasChangesRef.current) {
-      onCardChange(); // Notify parent to refresh board only if changes were made
-    }
-    onClose();
-  }, [onCardChange, onClose]);
 
   // Handle ESC key and click outside
   useEffect(() => {
@@ -114,13 +119,13 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
 
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && !showDeleteConfirm) {
-        handleClose();
+        onClose();
       }
     };
 
     const handleClickOutside = (e: MouseEvent) => {
       if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
-        handleClose();
+        onClose();
       }
     };
 
@@ -133,7 +138,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
       document.removeEventListener('mousedown', handleClickOutside);
       document.body.style.overflow = '';
     };
-  }, [isOpen, showDeleteConfirm, handleClose]);
+  }, [isOpen, onClose, showDeleteConfirm]);
 
   // Auto-save hooks for each field
   const titleAutoSave = useAutoSave(
@@ -145,12 +150,13 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
         await updateCard(card.id, { address: value });
         setSaveStates(prev => ({ ...prev, address: 'saved' }));
         setTimeout(() => setSaveStates(prev => ({ ...prev, address: 'idle' })), 2000);
+        await updateCardInBoardState(card.id);
       } catch (error) {
         console.error('Error saving title:', error);
         setSaveStates(prev => ({ ...prev, address: 'error' }));
         setTimeout(() => setSaveStates(prev => ({ ...prev, address: 'idle' })), 3000);
       }
-    }, [card]),
+    }, [card, updateCardInBoardState]),
     { debounceMs: 300 }
   );
 
@@ -163,12 +169,13 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
         await updateCard(card.id, { notes: value || null });
         setSaveStates(prev => ({ ...prev, notes: 'saved' }));
         setTimeout(() => setSaveStates(prev => ({ ...prev, notes: 'idle' })), 2000);
+        await updateCardInBoardState(card.id);
       } catch (error) {
         console.error('Error saving description:', error);
         setSaveStates(prev => ({ ...prev, notes: 'error' }));
         setTimeout(() => setSaveStates(prev => ({ ...prev, notes: 'idle' })), 3000);
       }
-    }, [card]),
+    }, [card, updateCardInBoardState]),
     { debounceMs: 300 }
   );
 
@@ -181,12 +188,13 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
         await updateCard(card.id, { client_name: value });
         setSaveStates(prev => ({ ...prev, client_name: 'saved' }));
         setTimeout(() => setSaveStates(prev => ({ ...prev, client_name: 'idle' })), 2000);
+        await updateCardInBoardState(card.id);
       } catch (error) {
         console.error('Error saving client name:', error);
         setSaveStates(prev => ({ ...prev, client_name: 'error' }));
         setTimeout(() => setSaveStates(prev => ({ ...prev, client_name: 'idle' })), 3000);
       }
-    }, [card]),
+    }, [card, updateCardInBoardState]),
     { debounceMs: 300 }
   );
 
@@ -199,12 +207,13 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
         await updateCard(card.id, { client_phone: value });
         setSaveStates(prev => ({ ...prev, client_phone: 'saved' }));
         setTimeout(() => setSaveStates(prev => ({ ...prev, client_phone: 'idle' })), 2000);
+        await updateCardInBoardState(card.id);
       } catch (error) {
         console.error('Error saving client phone:', error);
         setSaveStates(prev => ({ ...prev, client_phone: 'error' }));
         setTimeout(() => setSaveStates(prev => ({ ...prev, client_phone: 'idle' })), 3000);
       }
-    }, [card]),
+    }, [card, updateCardInBoardState]),
     { debounceMs: 300 }
   );
 
@@ -235,12 +244,13 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
         await updateCard(card.id, { property_manager: value });
         setSaveStates(prev => ({ ...prev, property_manager: 'saved' }));
         setTimeout(() => setSaveStates(prev => ({ ...prev, property_manager: 'idle' })), 2000);
+        await updateCardInBoardState(card.id);
       } catch (error) {
         console.error('Error saving property manager:', error);
         setSaveStates(prev => ({ ...prev, property_manager: 'error' }));
         setTimeout(() => setSaveStates(prev => ({ ...prev, property_manager: 'idle' })), 3000);
       }
-    }, [card]),
+    }, [card, updateCardInBoardState]),
     { debounceMs: 300 }
   );
 
@@ -253,12 +263,13 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
         await updateCard(card.id, { quote_amount: value });
         setSaveStates(prev => ({ ...prev, quote_amount: 'saved' }));
         setTimeout(() => setSaveStates(prev => ({ ...prev, quote_amount: 'idle' })), 2000);
+        await updateCardInBoardState(card.id);
       } catch (error) {
         console.error('Error saving quote amount:', error);
         setSaveStates(prev => ({ ...prev, quote_amount: 'error' }));
         setTimeout(() => setSaveStates(prev => ({ ...prev, quote_amount: 'idle' })), 3000);
       }
-    }, [card]),
+    }, [card, updateCardInBoardState]),
     { debounceMs: 500 }
   );
 
@@ -271,12 +282,13 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
         await updateCard(card.id, { projected_cost: value });
         setSaveStates(prev => ({ ...prev, projected_cost: 'saved' }));
         setTimeout(() => setSaveStates(prev => ({ ...prev, projected_cost: 'idle' })), 2000);
+        await updateCardInBoardState(card.id);
       } catch (error) {
         console.error('Error saving projected cost:', error);
         setSaveStates(prev => ({ ...prev, projected_cost: 'error' }));
         setTimeout(() => setSaveStates(prev => ({ ...prev, projected_cost: 'idle' })), 3000);
       }
-    }, [card]),
+    }, [card, updateCardInBoardState]),
     { debounceMs: 500 }
   );
 
@@ -289,12 +301,13 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
         await updateCard(card.id, { projected_profit: value });
         setSaveStates(prev => ({ ...prev, projected_profit: 'saved' }));
         setTimeout(() => setSaveStates(prev => ({ ...prev, projected_profit: 'idle' })), 2000);
+        await updateCardInBoardState(card.id);
       } catch (error) {
         console.error('Error saving projected profit:', error);
         setSaveStates(prev => ({ ...prev, projected_profit: 'error' }));
         setTimeout(() => setSaveStates(prev => ({ ...prev, projected_profit: 'idle' })), 3000);
       }
-    }, [card]),
+    }, [card, updateCardInBoardState]),
     { debounceMs: 500 }
   );
 
@@ -307,12 +320,13 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
         await updateCard(card.id, { projected_commission: value });
         setSaveStates(prev => ({ ...prev, projected_commission: 'saved' }));
         setTimeout(() => setSaveStates(prev => ({ ...prev, projected_commission: 'idle' })), 2000);
+        await updateCardInBoardState(card.id);
       } catch (error) {
         console.error('Error saving projected commission:', error);
         setSaveStates(prev => ({ ...prev, projected_commission: 'error' }));
         setTimeout(() => setSaveStates(prev => ({ ...prev, projected_commission: 'idle' })), 3000);
       }
-    }, [card]),
+    }, [card, updateCardInBoardState]),
     { debounceMs: 500 }
   );
 
@@ -325,12 +339,13 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
         await updateCard(card.id, { projected_office: value });
         setSaveStates(prev => ({ ...prev, projected_office: 'saved' }));
         setTimeout(() => setSaveStates(prev => ({ ...prev, projected_office: 'idle' })), 2000);
+        await updateCardInBoardState(card.id);
       } catch (error) {
         console.error('Error saving projected office:', error);
         setSaveStates(prev => ({ ...prev, projected_office: 'error' }));
         setTimeout(() => setSaveStates(prev => ({ ...prev, projected_office: 'idle' })), 3000);
       }
-    }, [card]),
+    }, [card, updateCardInBoardState]),
     { debounceMs: 500 }
   );
 
@@ -352,16 +367,14 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
         setCardLabels(prev => [...prev, labelToAdd]);
       }
     }
-    hasChangesRef.current = true; // Mark that changes were made
 
     try {
       await updateCardLabels(card.id, newLabelIds);
-      await loadRelatedData(); // Refresh to ensure sync
-      // Removed onCardChange() call - will be called on modal close if hasChangesRef is true
+      await loadRelatedData(); // Refresh modal data
+      await updateCardInBoardState(card.id); // Update board state directly
     } catch (error) {
       console.error('Error updating labels:', error);
       await loadRelatedData(); // Revert on error
-      hasChangesRef.current = false; // Reset on error since change didn't persist
     }
   };
 
@@ -393,6 +406,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
       await updateCard(card.id, { priority });
       setSaveStates(prev => ({ ...prev, priority: 'saved' }));
       setTimeout(() => setSaveStates(prev => ({ ...prev, priority: 'idle' })), 2000);
+      await updateCardInBoardState(card.id); // Update board state directly
     } catch (error) {
       console.error('Error updating priority:', error);
       setSaveStates(prev => ({ ...prev, priority: 'error' }));
@@ -408,6 +422,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
       await updateCard(card.id, { due_date: dueDate });
       setSaveStates(prev => ({ ...prev, due_date: 'saved' }));
       setTimeout(() => setSaveStates(prev => ({ ...prev, due_date: 'idle' })), 2000);
+      await updateCardInBoardState(card.id); // Update board state directly
     } catch (error) {
       console.error('Error updating due date:', error);
       setSaveStates(prev => ({ ...prev, due_date: 'error' }));
@@ -440,9 +455,8 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
 
     try {
       await deleteCard(card.id);
-      hasChangesRef.current = false; // Reset since we're handling refresh explicitly
-      onCardChange(); // Refresh board
-      handleClose(); // Close modal (won't call onCardChange again since hasChangesRef is false)
+      onCardChange(); // Refresh board (card deletion requires full refresh)
+      onClose(); // Close modal
     } catch (error) {
       console.error('Error deleting card:', error);
       alert('Failed to delete card. Please try again.');
@@ -467,7 +481,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
       }}
       onClick={(e) => {
         if (e.target === e.currentTarget) {
-          handleClose();
+          onClose();
         }
       }}
     >

@@ -76,6 +76,18 @@ export default function BoardViewPage() {
     loadBoard();
   };
 
+  // Update a single card in the board's local state without refetching
+  const updateCardInBoard = useCallback((cardId: string, updatedCard: CardWithLabels) => {
+    setColumns(prevColumns => 
+      prevColumns.map(column => ({
+        ...column,
+        cards: column.cards.map(card => 
+          card.id === cardId ? updatedCard : card
+        )
+      }))
+    );
+  }, []);
+
   if (isLoading) {
     return (
       <div style={{ display: 'flex', minHeight: '100vh', background: '#f1f5f9' }}>
@@ -150,6 +162,7 @@ export default function BoardViewPage() {
         card={selectedCard}
         columns={columnsForModal}
         onCardChange={handleCardChange}
+        onCardUpdate={updateCardInBoard}
       />
     </div>
   );
