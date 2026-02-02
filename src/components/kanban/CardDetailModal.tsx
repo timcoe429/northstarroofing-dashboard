@@ -61,6 +61,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
   const priorityButtonRef = useRef<HTMLButtonElement>(null);
   const dueDateButtonRef = useRef<HTMLButtonElement>(null);
   const fileUploadTriggerRef = useRef<(() => void) | null>(null);
+  const hasChangesRef = useRef(false);
 
   // Load related data
   const loadRelatedData = useCallback(async () => {
@@ -87,8 +88,25 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
   useEffect(() => {
     if (card && isOpen) {
       loadRelatedData();
+      hasChangesRef.current = false; // Reset changes tracking when modal opens with a card
     }
   }, [card, isOpen, loadRelatedData]);
+
+  // Reset save states when card changes
+  useEffect(() => {
+    if (card) {
+      setSaveStates({});
+      hasChangesRef.current = false; // Reset changes tracking when card changes
+    }
+  }, [card]);
+
+  // Wrapper for onClose that checks if changes were made
+  const handleClose = useCallback(() => {
+    if (hasChangesRef.current) {
+      onCardChange(); // Notify parent to refresh board only if changes were made
+    }
+    onClose();
+  }, [onCardChange, onClose]);
 
   // Handle ESC key and click outside
   useEffect(() => {
@@ -96,13 +114,13 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
 
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && !showDeleteConfirm) {
-        onClose();
+        handleClose();
       }
     };
 
     const handleClickOutside = (e: MouseEvent) => {
       if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
-        onClose();
+        handleClose();
       }
     };
 
@@ -115,14 +133,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
       document.removeEventListener('mousedown', handleClickOutside);
       document.body.style.overflow = '';
     };
-  }, [isOpen, onClose, showDeleteConfirm]);
-
-  // Reset save states when card changes
-  useEffect(() => {
-    if (card) {
-      setSaveStates({});
-    }
-  }, [card]);
+  }, [isOpen, showDeleteConfirm, handleClose]);
 
   // Auto-save hooks for each field
   const titleAutoSave = useAutoSave(
@@ -341,14 +352,16 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
         setCardLabels(prev => [...prev, labelToAdd]);
       }
     }
+    hasChangesRef.current = true; // Mark that changes were made
 
     try {
       await updateCardLabels(card.id, newLabelIds);
       await loadRelatedData(); // Refresh to ensure sync
-      onCardChange(); // Notify parent to refresh board cards
+      // Removed onCardChange() call - will be called on modal close if hasChangesRef is true
     } catch (error) {
       console.error('Error updating labels:', error);
       await loadRelatedData(); // Revert on error
+      hasChangesRef.current = false; // Reset on error since change didn't persist
     }
   };
 
@@ -427,8 +440,9 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
 
     try {
       await deleteCard(card.id);
+      hasChangesRef.current = false; // Reset since we're handling refresh explicitly
       onCardChange(); // Refresh board
-      onClose(); // Close modal
+      handleClose(); // Close modal (won't call onCardChange again since hasChangesRef is false)
     } catch (error) {
       console.error('Error deleting card:', error);
       alert('Failed to delete card. Please try again.');
@@ -453,7 +467,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
       }}
       onClick={(e) => {
         if (e.target === e.currentTarget) {
-          onClose();
+          handleClose();
         }
       }}
     >
