@@ -16,6 +16,7 @@ export function useAutoSave<T>(
   setValue: (value: T) => void;
   saveState: SaveState;
   saveNow: () => Promise<void>;
+  cancel: () => void;
 } {
   const { debounceMs = 300, saveOnBlur = true } = options;
   
@@ -81,10 +82,19 @@ export function useAutoSave<T>(
     setValue(newValue);
   }, []);
 
+  const cancel = useCallback(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+    setSaveState('idle');
+  }, []);
+
   return {
     value,
     setValue: handleSetValue,
     saveState,
     saveNow,
+    cancel,
   };
 }

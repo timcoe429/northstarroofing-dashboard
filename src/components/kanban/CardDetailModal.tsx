@@ -118,8 +118,14 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
     if (!isOpen) return;
 
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !showDeleteConfirm) {
-        onClose();
+      if (e.key === 'Escape') {
+        if (showDeleteConfirm) {
+          // Close delete confirm dialog
+          setShowDeleteConfirm(false);
+        } else {
+          // Close main modal
+          onClose();
+        }
       }
     };
 
@@ -447,19 +453,17 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
 
   const handleDeleteCard = async () => {
     if (!card) return;
-    
-    if (!confirm('Are you sure you want to delete this card? This action cannot be undone.')) {
-      setShowDeleteConfirm(false);
-      return;
-    }
 
     try {
       await deleteCard(card.id);
+      setShowDeleteConfirm(false);
       onCardChange(); // Refresh board (card deletion requires full refresh)
       onClose(); // Close modal
     } catch (error) {
       console.error('Error deleting card:', error);
-      alert('Failed to delete card. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to delete card. Please try again.';
+      alert(errorMessage);
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -492,7 +496,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
           background: '#ffffff',
           borderRadius: 12,
           width: '100%',
-          maxWidth: 1080,
+          maxWidth: 'min(1080px, 95vw)',
           maxHeight: '90vh',
           overflow: 'hidden',
           display: 'flex',
@@ -591,13 +595,13 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
           display: 'flex',
           flex: 1,
           overflow: 'hidden',
+          minWidth: 0,
         }}>
           {/* Left Side */}
           <div style={{
-            flexBasis: 460,
-            flexGrow: 1,
-            flexShrink: 1,
+            flex: '1 1 0',
             minWidth: 0,
+            maxWidth: '50%',
             overflowY: 'auto',
             overflowX: 'hidden',
             padding: '24px 32px 32px 24px',
@@ -870,6 +874,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
               type="textarea"
               onChange={(value) => descriptionAutoSave.setValue(typeof value === 'string' ? value : (value?.toString() || ''))}
               onSave={descriptionAutoSave.saveNow}
+              onCancel={descriptionAutoSave.cancel}
               placeholder="Add a more detailed description..."
               saveState={saveStates.notes}
               rows={4}
@@ -895,6 +900,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
                   type="text"
                   onChange={(value) => clientNameAutoSave.setValue(typeof value === 'string' ? value : (value?.toString() || ''))}
                   onSave={clientNameAutoSave.saveNow}
+                  onCancel={clientNameAutoSave.cancel}
                   placeholder="Client name"
                   saveState={saveStates.client_name}
                 />
@@ -904,6 +910,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
                   type="tel"
                   onChange={(value) => clientPhoneAutoSave.setValue(typeof value === 'string' ? value : (value?.toString() || ''))}
                   onSave={clientPhoneAutoSave.saveNow}
+                  onCancel={clientPhoneAutoSave.cancel}
                   placeholder="Phone number"
                   saveState={saveStates.client_phone}
                 />
@@ -913,6 +920,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
                   type="email"
                   onChange={(value) => clientEmailAutoSave.setValue(typeof value === 'string' ? value : (value?.toString() || ''))}
                   onSave={clientEmailAutoSave.saveNow}
+                  onCancel={clientEmailAutoSave.cancel}
                   placeholder="Email address"
                   saveState={saveStates.client_email}
                 />
@@ -922,6 +930,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
                   type="text"
                   onChange={(value) => propertyManagerAutoSave.setValue(typeof value === 'string' ? value : (value?.toString() || ''))}
                   onSave={propertyManagerAutoSave.saveNow}
+                  onCancel={propertyManagerAutoSave.cancel}
                   placeholder="Property manager"
                   saveState={saveStates.property_manager}
                 />
@@ -945,6 +954,11 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
               onProjectedProfitSave={projectedProfitAutoSave.saveNow}
               onProjectedCommissionSave={projectedCommissionAutoSave.saveNow}
               onProjectedOfficeSave={projectedOfficeAutoSave.saveNow}
+              onQuoteAmountCancel={quoteAmountAutoSave.cancel}
+              onProjectedCostCancel={projectedCostAutoSave.cancel}
+              onProjectedProfitCancel={projectedProfitAutoSave.cancel}
+              onProjectedCommissionCancel={projectedCommissionAutoSave.cancel}
+              onProjectedOfficeCancel={projectedOfficeAutoSave.cancel}
               saveStates={saveStates}
             />
 
@@ -959,9 +973,9 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
 
           {/* Right Sidebar */}
           <div style={{
-            width: 460,
-            flexShrink: 0,
-            minWidth: 460,
+            flex: '0 0 400px',
+            minWidth: 0,
+            maxWidth: '50%',
             overflowY: 'auto',
             overflowX: 'hidden',
             padding: '24px 32px 32px 24px',
@@ -986,15 +1000,27 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
 
       {/* Delete Confirmation */}
       {showDeleteConfirm && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 2000,
-        }}>
+        <div 
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 2000,
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowDeleteConfirm(false);
+            }
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              setShowDeleteConfirm(false);
+            }
+          }}
+        >
           <div style={{
             background: '#ffffff',
             borderRadius: 8,

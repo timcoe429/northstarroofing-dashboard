@@ -12,6 +12,7 @@ interface EditableFieldProps {
   type?: FieldType;
   onChange: (value: string | number | null) => void;
   onSave: () => Promise<void>;
+  onCancel?: () => void;
   placeholder?: string;
   saveState?: SaveState;
   required?: boolean;
@@ -24,6 +25,7 @@ export const EditableField: React.FC<EditableFieldProps> = ({
   type = 'text',
   onChange,
   onSave,
+  onCancel,
   placeholder,
   saveState = 'idle',
   required = false,
@@ -31,31 +33,41 @@ export const EditableField: React.FC<EditableFieldProps> = ({
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [displayValue, setDisplayValue] = useState('');
+  const [rawValue, setRawValue] = useState<string>(''); // Store raw input during editing
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
 
-  // Format value for display
+  // Format value for display (only when not editing)
   useEffect(() => {
-    if (type === 'currency') {
-      if (value === null || value === undefined || value === '') {
-        setDisplayValue('');
+    if (!isEditing) {
+      if (type === 'currency') {
+        if (value === null || value === undefined || value === '') {
+          setDisplayValue('');
+        } else {
+          const numValue = typeof value === 'string' ? parseFloat(value) : value;
+          setDisplayValue(numValue !== null && numValue !== undefined && !isNaN(numValue) ? `$${numValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '');
+        }
       } else {
-        const numValue = typeof value === 'string' ? parseFloat(value) : value;
-        setDisplayValue(numValue ? `$${numValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '');
+        setDisplayValue(value?.toString() || '');
       }
-    } else {
-      setDisplayValue(value?.toString() || '');
     }
-  }, [value, type]);
+  }, [value, type, isEditing]);
 
   // Focus input when editing starts
   useEffect(() => {
     if (isEditing && inputRef.current) {
+      // For currency, show raw number value for editing
+      if (type === 'currency') {
+        const numValue = typeof value === 'string' ? parseFloat(value) : value;
+        const raw = numValue !== null && numValue !== undefined && !isNaN(numValue) ? numValue.toString() : '';
+        setRawValue(raw);
+        setDisplayValue(raw);
+      }
       inputRef.current.focus();
       if (type === 'text' || type === 'currency') {
         (inputRef.current as HTMLInputElement).select();
       }
     }
-  }, [isEditing, type]);
+  }, [isEditing, type, value]);
 
   const handleClick = () => {
     setIsEditing(true);
@@ -63,18 +75,32 @@ export const EditableField: React.FC<EditableFieldProps> = ({
 
   const handleBlur = async () => {
     setIsEditing(false);
+    
+    // Parse currency value on blur
+    if (type === 'currency') {
+      const cleaned = rawValue.replace(/[^0-9.-]/g, '');
+      const numValue = cleaned ? parseFloat(cleaned) : null;
+      if (numValue !== null && !isNaN(numValue)) {
+        onChange(numValue);
+      } else {
+        onChange(null);
+      }
+    }
+    
     await onSave();
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const newValue = e.target.value;
-    setDisplayValue(newValue);
     
     if (type === 'currency') {
-      // Parse currency input
-      const numValue = parseFloat(newValue.replace(/[^0-9.-]+/g, ''));
-      onChange(isNaN(numValue) ? null : numValue);
+      // Allow free typing - only allow numbers, dots, and minus
+      const cleaned = newValue.replace(/[^0-9.-]/g, '');
+      setRawValue(cleaned);
+      setDisplayValue(cleaned);
+      // Don't call onChange during typing - wait for blur
     } else {
+      setDisplayValue(newValue);
       onChange(newValue || null);
     }
   };
@@ -86,10 +112,16 @@ export const EditableField: React.FC<EditableFieldProps> = ({
     }
     if (e.key === 'Escape') {
       setIsEditing(false);
-      // Reset to original value
+      // Cancel any pending saves
+      if (onCancel) {
+        onCancel();
+      }
+      // Reset to original value - don't save
       if (type === 'currency') {
         const numValue = typeof value === 'string' ? parseFloat(value) : value;
-        setDisplayValue(numValue ? `$${numValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '');
+        const formatted = numValue !== null && numValue !== undefined && !isNaN(numValue) ? `$${numValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '';
+        setDisplayValue(formatted);
+        setRawValue(numValue !== null && numValue !== undefined && !isNaN(numValue) ? numValue.toString() : '');
       } else {
         setDisplayValue(value?.toString() || '');
       }
@@ -129,7 +161,7 @@ export const EditableField: React.FC<EditableFieldProps> = ({
 
     const commonProps = {
       ref: inputRef as any,
-      value: type === 'currency' ? displayValue.replace('$', '').replace(/,/g, '') : displayValue,
+      value: type === 'currency' && isEditing ? rawValue : (type === 'currency' ? displayValue.replace('$', '').replace(/,/g, '') : displayValue),
       onChange: handleChange,
       onBlur: handleBlur,
       onKeyDown: handleKeyDown,

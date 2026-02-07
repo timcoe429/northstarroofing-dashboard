@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { EditableField } from './EditableField';
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
@@ -21,6 +21,11 @@ interface FinancialFieldsProps {
   onProjectedProfitSave: () => Promise<void>;
   onProjectedCommissionSave: () => Promise<void>;
   onProjectedOfficeSave: () => Promise<void>;
+  onQuoteAmountCancel?: () => void;
+  onProjectedCostCancel?: () => void;
+  onProjectedProfitCancel?: () => void;
+  onProjectedCommissionCancel?: () => void;
+  onProjectedOfficeCancel?: () => void;
   saveStates: {
     quote_amount?: SaveState;
     projected_cost?: SaveState;
@@ -46,12 +51,20 @@ export const FinancialFields: React.FC<FinancialFieldsProps> = ({
   onProjectedProfitSave,
   onProjectedCommissionSave,
   onProjectedOfficeSave,
+  onQuoteAmountCancel,
+  onProjectedCostCancel,
+  onProjectedProfitCancel,
+  onProjectedCommissionCancel,
+  onProjectedOfficeCancel,
   saveStates,
 }) => {
-  // Calculate profit if quote and cost are available
-  const calculatedProfit = quoteAmount && projectedCost 
-    ? quoteAmount - projectedCost 
-    : null;
+  // Calculate profit if quote and cost are available - update in real-time
+  const calculatedProfit = useMemo(() => {
+    if (quoteAmount !== null && projectedCost !== null && quoteAmount !== undefined && projectedCost !== undefined) {
+      return quoteAmount - projectedCost;
+    }
+    return null;
+  }, [quoteAmount, projectedCost]);
 
   return (
     <div>
@@ -74,6 +87,7 @@ export const FinancialFields: React.FC<FinancialFieldsProps> = ({
           type="currency"
           onChange={(value) => onQuoteAmountChange(typeof value === 'number' ? value : null)}
           onSave={onQuoteAmountSave}
+          onCancel={onQuoteAmountCancel}
           placeholder="$0.00"
           saveState={saveStates.quote_amount}
         />
@@ -84,6 +98,7 @@ export const FinancialFields: React.FC<FinancialFieldsProps> = ({
           type="currency"
           onChange={(value) => onProjectedCostChange(typeof value === 'number' ? value : null)}
           onSave={onProjectedCostSave}
+          onCancel={onProjectedCostCancel}
           placeholder="$0.00"
           saveState={saveStates.projected_cost}
         />
@@ -107,6 +122,7 @@ export const FinancialFields: React.FC<FinancialFieldsProps> = ({
           type="currency"
           onChange={(value) => onProjectedProfitChange(typeof value === 'number' ? value : null)}
           onSave={onProjectedProfitSave}
+          onCancel={onProjectedProfitCancel}
           placeholder="$0.00"
           saveState={saveStates.projected_profit}
         />
@@ -117,6 +133,7 @@ export const FinancialFields: React.FC<FinancialFieldsProps> = ({
           type="currency"
           onChange={(value) => onProjectedCommissionChange(typeof value === 'number' ? value : null)}
           onSave={onProjectedCommissionSave}
+          onCancel={onProjectedCommissionCancel}
           placeholder="$0.00"
           saveState={saveStates.projected_commission}
         />
@@ -127,6 +144,7 @@ export const FinancialFields: React.FC<FinancialFieldsProps> = ({
           type="currency"
           onChange={(value) => onProjectedOfficeChange(typeof value === 'number' ? value : null)}
           onSave={onProjectedOfficeSave}
+          onCancel={onProjectedOfficeCancel}
           placeholder="$0.00"
           saveState={saveStates.projected_office}
         />

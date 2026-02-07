@@ -19,7 +19,32 @@ export const FileAttachments: React.FC<FileAttachmentsProps> = ({
 }) => {
   const [hoveredFileId, setHoveredFileId] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const isImageFile = useCallback((file: CardFile) => {
+    const ext = file.file_name.split('.').pop()?.toLowerCase();
+    return ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext || '');
+  }, []);
+
+  // Load image URLs for image files
+  useEffect(() => {
+    const loadImageUrls = async () => {
+      const urls: Record<string, string> = {};
+      for (const file of files) {
+        if (isImageFile(file)) {
+          try {
+            const url = await getFileUrl(file.file_path);
+            urls[file.id] = url;
+          } catch (error) {
+            console.error('Error loading image URL:', error);
+          }
+        }
+      }
+      setImageUrls(urls);
+    };
+    loadImageUrls();
+  }, [files, isImageFile]);
 
   const handleUploadClick = useCallback(() => {
     fileInputRef.current?.click();
@@ -60,7 +85,8 @@ export const FileAttachments: React.FC<FileAttachmentsProps> = ({
       await onFilesChange();
     } catch (error) {
       console.error('Error uploading file:', error);
-      alert('Failed to upload file. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to upload file. Please try again.';
+      alert(errorMessage);
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) {
@@ -102,6 +128,7 @@ export const FileAttachments: React.FC<FileAttachmentsProps> = ({
         return '📎';
     }
   };
+
 
   return (
     <div data-section="attachments">
@@ -179,8 +206,36 @@ export const FileAttachments: React.FC<FileAttachmentsProps> = ({
                 fontSize: 32,
                 textAlign: 'center',
                 marginBottom: 8,
+                minHeight: 80,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: '#f4f5f7',
+                borderRadius: 4,
+                overflow: 'hidden',
               }}>
-                {getFileIcon(file.file_type)}
+                {isImageFile(file) && imageUrls[file.id] ? (
+                  <img
+                    src={imageUrls[file.id]}
+                    alt={file.file_name}
+                    style={{
+                      width: '100%',
+                      height: 80,
+                      objectFit: 'cover',
+                    }}
+                    onError={(e) => {
+                      // Fallback to icon if image fails to load
+                      (e.target as HTMLImageElement).style.display = 'none';
+                      const parent = (e.target as HTMLElement).parentElement;
+                      if (parent) {
+                        parent.innerHTML = getFileIcon(file.file_type);
+                        parent.style.fontSize = '32px';
+                      }
+                    }}
+                  />
+                ) : (
+                  <span>{getFileIcon(file.file_type)}</span>
+                )}
               </div>
               
               {/* File name */}

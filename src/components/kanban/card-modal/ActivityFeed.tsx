@@ -23,16 +23,29 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
     const date = new Date(timestamp);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
+    const diffSecs = Math.floor(diffMs / 1000);
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMins < 1) return 'Just now';
+    // Show seconds for very recent activities
+    if (diffSecs < 60) return diffSecs < 10 ? 'Just now' : `${diffSecs}s ago`;
+    // Show minutes for activities < 1 hour
     if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
+    // Show hours for activities < 24 hours
+    if (diffHours < 24) return diffHours === 1 ? 'an hour ago' : `${diffHours}h ago`;
+    // Show "Yesterday" for activities from yesterday
     if (diffDays === 1) return 'Yesterday';
+    // Show days for activities < 7 days
     if (diffDays < 7) return `${diffDays}d ago`;
     
+    // For today's activities, show exact time
+    const isToday = date.toDateString() === now.toDateString();
+    if (isToday) {
+      return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    }
+    
+    // For older activities, show date
     return date.toLocaleDateString('en-US', { 
       month: 'short', 
       day: 'numeric',

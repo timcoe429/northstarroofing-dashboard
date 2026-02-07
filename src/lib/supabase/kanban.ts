@@ -243,25 +243,62 @@ export async function updateCard(
 
   if (error) throw error;
 
-  // Log field updates
+  // Log field updates for all changed fields
   const fieldChanges: string[] = [];
-  if (updates.address && updates.address !== oldCard.address) {
+  
+  if (updates.address !== undefined && updates.address !== oldCard.address) {
     fieldChanges.push(`Address updated to "${updates.address}"`);
+  }
+  if (updates.client_name !== undefined && updates.client_name !== oldCard.client_name) {
+    fieldChanges.push(`Client name updated to "${updates.client_name || 'None'}"`);
+  }
+  if (updates.client_phone !== undefined && updates.client_phone !== oldCard.client_phone) {
+    fieldChanges.push(`Client phone updated to "${updates.client_phone || 'None'}"`);
+  }
+  if (updates.client_email !== undefined && updates.client_email !== oldCard.client_email) {
+    fieldChanges.push(`Client email updated to "${updates.client_email || 'None'}"`);
+  }
+  if (updates.property_manager !== undefined && updates.property_manager !== oldCard.property_manager) {
+    fieldChanges.push(`Property manager updated to "${updates.property_manager || 'None'}"`);
+  }
+  if (updates.notes !== undefined && updates.notes !== oldCard.notes) {
+    fieldChanges.push(`Notes updated`);
   }
   if (updates.quote_amount !== undefined && updates.quote_amount !== oldCard.quote_amount) {
     fieldChanges.push(`Quote updated from ${formatCurrency(oldCard.quote_amount || 0)} to ${formatCurrency(updates.quote_amount || 0)}`);
   }
-  if (updates.priority && updates.priority !== oldCard.priority) {
-    fieldChanges.push(`Priority changed to ${updates.priority}`);
+  if (updates.projected_cost !== undefined && updates.projected_cost !== oldCard.projected_cost) {
+    fieldChanges.push(`Projected cost updated from ${formatCurrency(oldCard.projected_cost || 0)} to ${formatCurrency(updates.projected_cost || 0)}`);
   }
-  if (updates.job_type && updates.job_type !== oldCard.job_type) {
-    fieldChanges.push(`Job type changed to ${updates.job_type}`);
+  if (updates.projected_profit !== undefined && updates.projected_profit !== oldCard.projected_profit) {
+    fieldChanges.push(`Projected profit updated from ${formatCurrency(oldCard.projected_profit || 0)} to ${formatCurrency(updates.projected_profit || 0)}`);
+  }
+  if (updates.projected_commission !== undefined && updates.projected_commission !== oldCard.projected_commission) {
+    fieldChanges.push(`Projected commission updated from ${formatCurrency(oldCard.projected_commission || 0)} to ${formatCurrency(updates.projected_commission || 0)}`);
+  }
+  if (updates.projected_office !== undefined && updates.projected_office !== oldCard.projected_office) {
+    fieldChanges.push(`Projected office updated from ${formatCurrency(oldCard.projected_office || 0)} to ${formatCurrency(updates.projected_office || 0)}`);
+  }
+  if (updates.priority !== undefined && updates.priority !== oldCard.priority) {
+    fieldChanges.push(`Priority changed to ${updates.priority || 'None'}`);
+  }
+  if (updates.job_type !== undefined && updates.job_type !== oldCard.job_type) {
+    fieldChanges.push(`Job type changed to ${updates.job_type || 'None'}`);
+  }
+  if (updates.due_date !== undefined && updates.due_date !== oldCard.due_date) {
+    const oldDate = oldCard.due_date ? new Date(oldCard.due_date).toLocaleDateString() : 'None';
+    const newDate = updates.due_date ? new Date(updates.due_date).toLocaleDateString() : 'None';
+    fieldChanges.push(`Due date changed from ${oldDate} to ${newDate}`);
   }
 
-  if (fieldChanges.length > 0) {
-    await createCardActivity(cardId, 'field_updated', fieldChanges.join(', '), {
+  // Log each field change separately for better activity feed clarity
+  for (const change of fieldChanges) {
+    await createCardActivity(cardId, 'field_updated', change, {
       old_values: oldCard,
       new_values: updates,
+    }).catch(err => {
+      // Don't fail update if activity logging fails
+      console.error('Failed to log activity:', err);
     });
   }
 
@@ -297,17 +334,65 @@ export async function moveCard(
     throw new Error('Target column not found');
   }
 
-  // Update card position
-  const { error } = await supabase
+  // Get all cards in both columns
+  const { data: oldColumnCards } = await supabase
     .from('cards')
-    .update({
-      column_id: newColumnId,
-      position: newPosition,
-    })
-    .eq('id', cardId);
+    .select('id, position')
+    .eq('column_id', oldColumnId)
+    .order('position', { ascending: true });
 
-  if (error) {
-    throw new Error(`Failed to move card: ${error.message}`);
+  const { data: newColumnCards } = await supabase
+    .from('cards')
+    .select('id, position')
+    .eq('column_id', newColumnId)
+    .order('position', { ascending: true });
+
+  if (!oldColumnCards || !newColumnCards) {
+    throw new Error('Failed to fetch column cards');
+  }
+
+  // Calculate new positions
+  const updates: Array<{ id: string; column_id: string; position: number }> = [];
+
+  if (oldColumnId === newColumnId) {
+    // Reordering within same column
+    const cards = oldColumnCards.filter(c => c.id !== cardId);
+    const oldIndex = oldColumnCards.findIndex(c => c.id === cardId);
+    
+    // Remove card from old position and insert at new position
+    cards.splice(oldIndex, 1);
+    cards.splice(newPosition, 0, { id: cardId, position: newPosition } as any);
+    
+    // Update all positions
+    cards.forEach((c, idx) => {
+      updates.push({ id: c.id, column_id: oldColumnId, position: idx });
+    });
+  } else {
+    // Moving between columns
+    // Remove from old column - shift remaining cards up
+    const oldCards = oldColumnCards.filter(c => c.id !== cardId);
+    oldCards.forEach((c, idx) => {
+      updates.push({ id: c.id, column_id: oldColumnId, position: idx });
+    });
+
+    // Insert into new column - shift cards at/after newPosition down
+    const newCards = [...newColumnCards];
+    newCards.splice(newPosition, 0, { id: cardId, position: newPosition } as any);
+    newCards.forEach((c, idx) => {
+      updates.push({ id: c.id, column_id: newColumnId, position: idx });
+    });
+  }
+
+  // Perform batch update
+  for (const update of updates) {
+    const { error } = await supabase
+      .from('cards')
+      .update({ column_id: update.column_id, position: update.position })
+      .eq('id', update.id);
+    
+    if (error) {
+      throw new Error(`Failed to update card positions: ${error.message}`);
+    }
   }
 
   // Log move activity (don't await - fire and forget for better performance)
@@ -328,6 +413,57 @@ export async function moveCard(
 }
 
 export async function deleteCard(cardId: string): Promise<void> {
+  // First, get all files for this card
+  const { data: files } = await supabase
+    .from('card_files')
+    .select('file_path')
+    .eq('card_id', cardId);
+
+  // Delete files from storage
+  if (files && files.length > 0) {
+    const filePaths = files.map(f => f.file_path).filter(Boolean);
+    if (filePaths.length > 0) {
+      const { error: storageError } = await supabase.storage
+        .from('project-files')
+        .remove(filePaths);
+      
+      // Log storage errors but don't fail if files don't exist
+      if (storageError) {
+        console.warn('Error deleting files from storage (may not exist):', storageError);
+      }
+    }
+  }
+
+  // Delete child records (card_files, card_labels, card_activity)
+  // These should cascade, but we'll delete explicitly to be safe
+  const { error: filesError } = await supabase
+    .from('card_files')
+    .delete()
+    .eq('card_id', cardId);
+  
+  if (filesError) {
+    console.warn('Error deleting card_files:', filesError);
+  }
+
+  const { error: labelsError } = await supabase
+    .from('card_labels')
+    .delete()
+    .eq('card_id', cardId);
+  
+  if (labelsError) {
+    console.warn('Error deleting card_labels:', labelsError);
+  }
+
+  const { error: activityError } = await supabase
+    .from('card_activity')
+    .delete()
+    .eq('card_id', cardId);
+  
+  if (activityError) {
+    console.warn('Error deleting card_activity:', activityError);
+  }
+
+  // Finally, delete the card itself
   const { error } = await supabase
     .from('cards')
     .delete()
@@ -482,16 +618,35 @@ export async function uploadCardFile(
   file: File,
   fileType: CardFile['file_type']
 ): Promise<CardFile> {
+  // Check file size (max 10MB)
+  const maxSize = 10 * 1024 * 1024; // 10MB
+  if (file.size > maxSize) {
+    throw new Error(`File size exceeds 10MB limit. File is ${(file.size / (1024 * 1024)).toFixed(2)}MB`);
+  }
+
   const fileExt = file.name.split('.').pop();
   const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
   const filePath = `${cardId}/${fileType}/${fileName}`;
 
   // Upload to Supabase Storage
-  const { error: uploadError } = await supabase.storage
+  const { error: uploadError, data: uploadData } = await supabase.storage
     .from('project-files')
-    .upload(filePath, file);
+    .upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: false,
+    });
 
-  if (uploadError) throw uploadError;
+  if (uploadError) {
+    // Provide more specific error messages
+    if (uploadError.message.includes('Bucket not found')) {
+      throw new Error('Storage bucket "project-files" not found. Please create it in Supabase Storage settings.');
+    } else if (uploadError.message.includes('new row violates row-level security')) {
+      throw new Error('Permission denied. Please check storage bucket RLS policies.');
+    } else if (uploadError.message.includes('duplicate')) {
+      throw new Error('A file with this name already exists.');
+    }
+    throw new Error(`Upload failed: ${uploadError.message}`);
+  }
 
   // Create file record
   const { data, error } = await supabase
@@ -506,7 +661,18 @@ export async function uploadCardFile(
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    // If database insert fails, try to clean up the uploaded file
+    if (uploadData) {
+      await supabase.storage
+        .from('project-files')
+        .remove([filePath])
+        .catch(() => {
+          // Ignore cleanup errors
+        });
+    }
+    throw new Error(`Failed to save file record: ${error.message}`);
+  }
 
   // Log activity
   await createCardActivity(
@@ -514,7 +680,9 @@ export async function uploadCardFile(
     'file_uploaded',
     `File uploaded: ${file.name}`,
     { file_type: fileType, file_path: filePath }
-  );
+  ).catch(() => {
+    // Don't fail upload if activity logging fails
+  });
 
   return data;
 }
