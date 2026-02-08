@@ -1,3 +1,4 @@
+// DEPRECATED: Custom Kanban removed. Keeping for reference during Trello API integration. Safe to delete after Trello integration is complete.
 // ===========================================
 // KANBAN BOARD SYSTEM - SUPABASE QUERIES & MUTATIONS
 // ===========================================

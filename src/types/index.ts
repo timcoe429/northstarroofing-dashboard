@@ -78,7 +78,9 @@ export interface TrelloCard {
   idList: string;
   labels: TrelloLabel[];
   due: string | null;
-  customFieldItems?: TrelloCustomField[];
+  dateLastActivity: string;
+  customFieldItems?: TrelloCustomFieldValue[];
+  attachments?: TrelloAttachment[];
 }
 
 export interface TrelloLabel {
@@ -88,6 +90,12 @@ export interface TrelloLabel {
 }
 
 export interface TrelloCustomField {
+  id: string;
+  name: string;
+  type: string;
+}
+
+export interface TrelloCustomFieldValue {
   idCustomField: string;
   value: {
     text?: string;
@@ -100,6 +108,26 @@ export interface TrelloCustomField {
 export interface TrelloList {
   id: string;
   name: string;
+  pos: number;
+}
+
+export interface TrelloAttachment {
+  id: string;
+  name: string;
+  url: string;
+}
+
+export interface TrelloBoardData {
+  lists: TrelloList[];
+  cards: TrelloCard[];
+  labels: TrelloLabel[];
+  customFields: TrelloCustomField[];
+}
+
+export interface CardFinancials {
+  contractAmount: number;
+  office10Pct: number;
+  netProfit: number;
 }
 
 // -----------------

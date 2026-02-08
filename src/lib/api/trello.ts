@@ -2,14 +2,24 @@
 // TRELLO API SERVICE
 // ===========================================
 
-import type { TrelloCard, TrelloList, Project } from '@/types';
+import type { 
+  TrelloCard, 
+  TrelloList, 
+  TrelloLabel, 
+  TrelloCustomField, 
+  TrelloCustomFieldValue,
+  TrelloAttachment,
+  TrelloBoardData,
+  Project 
+} from '@/types';
 
 const TRELLO_API_BASE = 'https://api.trello.com/1';
 
 interface TrelloConfig {
   apiKey: string;
   token: string;
-  boardId: string;
+  salesBoardId?: string;
+  buildBoardId?: string;
 }
 
 export class TrelloService {
@@ -19,7 +29,8 @@ export class TrelloService {
     this.config = {
       apiKey: config?.apiKey || process.env.TRELLO_API_KEY || '',
       token: config?.token || process.env.TRELLO_TOKEN || '',
-      boardId: config?.boardId || process.env.TRELLO_BOARD_ID || '',
+      salesBoardId: config?.salesBoardId || process.env.TRELLO_SALES_BOARD_ID || '',
+      buildBoardId: config?.buildBoardId || process.env.TRELLO_BUILD_BOARD_ID || '',
     };
   }
 
@@ -27,11 +38,14 @@ export class TrelloService {
     return `key=${this.config.apiKey}&token=${this.config.token}`;
   }
 
-  // Test connection
-  async testConnection(): Promise<boolean> {
+  // ===========================================
+  // CONNECTION TESTING
+  // ===========================================
+
+  async testBoardConnection(boardId: string): Promise<boolean> {
     try {
       const response = await fetch(
-        `${TRELLO_API_BASE}/boards/${this.config.boardId}?${this.authParams}`
+        `${TRELLO_API_BASE}/boards/${boardId}?${this.authParams}`
       );
       return response.ok;
     } catch {
@@ -39,32 +53,157 @@ export class TrelloService {
     }
   }
 
-  // Get all lists on the board
-  async getLists(): Promise<TrelloList[]> {
+  async testAllConnections(): Promise<{ sales: boolean; build: boolean }> {
+    const results = { sales: false, build: false };
+
+    if (this.config.salesBoardId) {
+      results.sales = await this.testBoardConnection(this.config.salesBoardId);
+    }
+
+    if (this.config.buildBoardId) {
+      results.build = await this.testBoardConnection(this.config.buildBoardId);
+    }
+
+    return results;
+  }
+
+  // ===========================================
+  // BOARD-SPECIFIC DATA RETRIEVAL
+  // ===========================================
+
+  async getListsForBoard(boardId: string): Promise<TrelloList[]> {
     const response = await fetch(
-      `${TRELLO_API_BASE}/boards/${this.config.boardId}/lists?${this.authParams}`
+      `${TRELLO_API_BASE}/boards/${boardId}/lists?${this.authParams}`
     );
-    if (!response.ok) throw new Error('Failed to fetch Trello lists');
+    if (!response.ok) {
+      throw new Error(`Failed to fetch lists for board ${boardId}: ${response.statusText}`);
+    }
     return response.json();
   }
 
-  // Get all cards on the board
-  async getCards(): Promise<TrelloCard[]> {
+  async getCardsForBoard(boardId: string): Promise<TrelloCard[]> {
     const response = await fetch(
-      `${TRELLO_API_BASE}/boards/${this.config.boardId}/cards?${this.authParams}&customFieldItems=true`
+      `${TRELLO_API_BASE}/boards/${boardId}/cards?${this.authParams}&customFieldItems=true&attachments=true`
     );
-    if (!response.ok) throw new Error('Failed to fetch Trello cards');
+    if (!response.ok) {
+      throw new Error(`Failed to fetch cards for board ${boardId}: ${response.statusText}`);
+    }
     return response.json();
+  }
+
+  async getLabelsForBoard(boardId: string): Promise<TrelloLabel[]> {
+    const response = await fetch(
+      `${TRELLO_API_BASE}/boards/${boardId}/labels?${this.authParams}`
+    );
+    if (!response.ok) {
+      throw new Error(`Failed to fetch labels for board ${boardId}: ${response.statusText}`);
+    }
+    return response.json();
+  }
+
+  async getCustomFields(boardId: string): Promise<TrelloCustomField[]> {
+    const response = await fetch(
+      `${TRELLO_API_BASE}/boards/${boardId}/customFields?${this.authParams}`
+    );
+    if (!response.ok) {
+      throw new Error(`Failed to fetch custom fields for board ${boardId}: ${response.statusText}`);
+    }
+    return response.json();
+  }
+
+  async getCard(cardId: string): Promise<TrelloCard> {
+    const response = await fetch(
+      `${TRELLO_API_BASE}/cards/${cardId}?${this.authParams}&customFieldItems=true&attachments=true`
+    );
+    if (!response.ok) {
+      throw new Error(`Failed to fetch card ${cardId}: ${response.statusText}`);
+    }
+    return response.json();
+  }
+
+  async getFullBoardData(boardId: string): Promise<TrelloBoardData> {
+    try {
+      const [lists, cards, labels, customFields] = await Promise.all([
+        this.getListsForBoard(boardId),
+        this.getCardsForBoard(boardId),
+        this.getLabelsForBoard(boardId),
+        this.getCustomFields(boardId),
+      ]);
+
+      return {
+        lists,
+        cards,
+        labels,
+        customFields,
+      };
+    } catch (error) {
+      throw new Error(`Failed to fetch complete board data for ${boardId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  // ===========================================
+  // CONVENIENCE METHODS FOR DUAL BOARD SETUP
+  // ===========================================
+
+  async getSalesBoardData(): Promise<TrelloBoardData> {
+    if (!this.config.salesBoardId) {
+      throw new Error('Sales Board ID not configured');
+    }
+    return this.getFullBoardData(this.config.salesBoardId);
+  }
+
+  async getBuildBoardData(): Promise<TrelloBoardData> {
+    if (!this.config.buildBoardId) {
+      throw new Error('Build Board ID not configured');
+    }
+    return this.getFullBoardData(this.config.buildBoardId);
+  }
+
+  // ===========================================
+  // LEGACY COMPATIBILITY METHODS
+  // ===========================================
+
+  // Get all lists (defaults to sales board for backward compatibility)
+  async getLists(): Promise<TrelloList[]> {
+    const boardId = this.config.salesBoardId || this.config.buildBoardId;
+    if (!boardId) {
+      throw new Error('No board ID configured');
+    }
+    return this.getListsForBoard(boardId);
+  }
+
+  // Get all cards (defaults to sales board for backward compatibility)
+  async getCards(): Promise<TrelloCard[]> {
+    const boardId = this.config.salesBoardId || this.config.buildBoardId;
+    if (!boardId) {
+      throw new Error('No board ID configured');
+    }
+    return this.getCardsForBoard(boardId);
   }
 
   // Get cards from a specific list
   async getCardsByList(listId: string): Promise<TrelloCard[]> {
     const response = await fetch(
-      `${TRELLO_API_BASE}/lists/${listId}/cards?${this.authParams}&customFieldItems=true`
+      `${TRELLO_API_BASE}/lists/${listId}/cards?${this.authParams}&customFieldItems=true&attachments=true`
     );
-    if (!response.ok) throw new Error('Failed to fetch cards from list');
+    if (!response.ok) {
+      throw new Error(`Failed to fetch cards from list ${listId}: ${response.statusText}`);
+    }
     return response.json();
   }
+
+  // Test connection (defaults to sales board for backward compatibility)
+  async testConnection(): Promise<boolean> {
+    const boardId = this.config.salesBoardId || this.config.buildBoardId;
+    if (!boardId) {
+      return false;
+    }
+    return this.testBoardConnection(boardId);
+  }
+
+  // ===========================================
+  // PROJECT MAPPING (LEGACY)
+  // ===========================================
 
   // Map Trello cards to Projects
   async getProjectsFromBoard(listMappings: Record<string, Project['status']>): Promise<Project[]> {
@@ -125,6 +264,18 @@ export class TrelloService {
     });
 
     return counts;
+  }
+
+  // ===========================================
+  // CONFIGURATION UPDATES
+  // ===========================================
+
+  updateConfig(newConfig: Partial<TrelloConfig>): void {
+    this.config = { ...this.config, ...newConfig };
+  }
+
+  getConfig(): TrelloConfig {
+    return { ...this.config };
   }
 }
 

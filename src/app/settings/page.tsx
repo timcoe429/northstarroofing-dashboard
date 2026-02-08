@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sidebar } from '@/components/Sidebar';
 import { Icons } from '@/components/Icons';
+import { useTrelloCredentials, useTrelloConnectionTest } from '@/hooks/useTrelloData';
 
 interface APIConnection {
   id: string;
@@ -29,7 +30,8 @@ const apiConnections: APIConnection[] = [
     fields: [
       { key: 'apiKey', label: 'API Key', type: 'password', placeholder: 'Enter your Trello API key' },
       { key: 'token', label: 'Token', type: 'password', placeholder: 'Enter your Trello token' },
-      { key: 'boardId', label: 'Board ID', type: 'text', placeholder: 'Enter your main board ID' },
+      { key: 'salesBoardId', label: 'Sales/Estimates Board ID', type: 'text', placeholder: 'e.g. WSiRtEMs' },
+      { key: 'buildBoardId', label: 'Build/Jobs Board ID', type: 'text', placeholder: 'e.g. 71rgUcQZ' },
     ],
   },
   {
@@ -62,6 +64,34 @@ export default function SettingsPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [formData, setFormData] = useState<Record<string, Record<string, string>>>({});
   const [testingId, setTestingId] = useState<string | null>(null);
+  
+  // Use Trello hooks
+  const { credentials, saveCredentials, clearCredentials, isConfigured } = useTrelloCredentials();
+  const { testing: trelloTesting, results: trelloTestResults, testConnection } = useTrelloConnectionTest();
+
+  // Initialize form data with stored credentials
+  useEffect(() => {
+    if (credentials) {
+      setFormData(prev => ({
+        ...prev,
+        trello: {
+          apiKey: credentials.apiKey || '',
+          token: credentials.token || '',
+          salesBoardId: credentials.salesBoardId || '',
+          buildBoardId: credentials.buildBoardId || '',
+        },
+      }));
+      
+      // Update connection status
+      setConnections(prev =>
+        prev.map(conn =>
+          conn.id === 'trello'
+            ? { ...conn, connected: isConfigured(), lastSync: new Date().toISOString() }
+            : conn
+        )
+      );
+    }
+  }, [credentials, isConfigured]);
 
   const handleInputChange = (connectionId: string, fieldKey: string, value: string) => {
     setFormData(prev => ({
@@ -75,14 +105,45 @@ export default function SettingsPage() {
 
   const handleTestConnection = async (connectionId: string) => {
     setTestingId(connectionId);
-    // Simulate API test
-    await new Promise(resolve => setTimeout(resolve, 1500));
+
+    if (connectionId === 'trello') {
+      // Test both Trello boards using the hook
+      const trelloData = formData[connectionId];
+      if (!trelloData?.apiKey || !trelloData?.token) {
+        alert('Please enter API Key and Token first');
+        setTestingId(null);
+        return;
+      }
+
+      await testConnection(
+        trelloData.apiKey,
+        trelloData.token,
+        trelloData.salesBoardId,
+        trelloData.buildBoardId
+      );
+    } else {
+      // Simulate API test for other connections
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      alert(`Connection test for ${connectionId} - Check console for implementation details`);
+    }
+
     setTestingId(null);
-    // In real implementation, this would test the actual connection
-    alert(`Connection test for ${connectionId} - Check console for implementation details`);
   };
 
   const handleSaveConnection = (connectionId: string) => {
+    if (connectionId === 'trello') {
+      // Save Trello credentials using the hook
+      const trelloData = formData[connectionId];
+      if (trelloData?.apiKey && trelloData?.token) {
+        saveCredentials({
+          apiKey: trelloData.apiKey,
+          token: trelloData.token,
+          salesBoardId: trelloData.salesBoardId || '',
+          buildBoardId: trelloData.buildBoardId || '',
+        });
+      }
+    }
+
     setConnections(prev =>
       prev.map(conn =>
         conn.id === connectionId
@@ -94,6 +155,11 @@ export default function SettingsPage() {
   };
 
   const handleDisconnect = (connectionId: string) => {
+    if (connectionId === 'trello') {
+      // Clear Trello credentials using the hook
+      clearCredentials();
+    }
+
     setConnections(prev =>
       prev.map(conn =>
         conn.id === connectionId
@@ -316,10 +382,53 @@ export default function SettingsPage() {
                             />
                           </div>
                         ))}
+                        {/* Test Results for Trello */}
+                        {connection.id === 'trello' && trelloTestResults && (
+                          <div style={{ marginBottom: 16 }}>
+                            <div style={{ marginBottom: 8 }}>
+                              <span style={{ fontSize: 12, fontWeight: 500, color: '#334155' }}>Connection Test Results:</span>
+                            </div>
+                            {formData[connection.id]?.salesBoardId && trelloTestResults.sales !== undefined && (
+                              <div style={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: 8, 
+                                marginBottom: 4,
+                                fontSize: 12
+                              }}>
+                                <span style={{ color: '#64748b' }}>Sales/Estimates Board:</span>
+                                <span style={{ 
+                                  color: trelloTestResults.sales ? '#059669' : '#dc2626',
+                                  fontWeight: 500
+                                }}>
+                                  {trelloTestResults.sales ? '✓ Connected' : '✗ Failed'}
+                                </span>
+                              </div>
+                            )}
+                            {formData[connection.id]?.buildBoardId && trelloTestResults.build !== undefined && (
+                              <div style={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: 8, 
+                                marginBottom: 4,
+                                fontSize: 12
+                              }}>
+                                <span style={{ color: '#64748b' }}>Build/Jobs Board:</span>
+                                <span style={{ 
+                                  color: trelloTestResults.build ? '#059669' : '#dc2626',
+                                  fontWeight: 500
+                                }}>
+                                  {trelloTestResults.build ? '✓ Connected' : '✗ Failed'}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
                           <button
                             onClick={() => handleTestConnection(connection.id)}
-                            disabled={testingId === connection.id}
+                            disabled={testingId === connection.id || (connection.id === 'trello' && trelloTesting)}
                             style={{ 
                               padding: '10px 16px', 
                               background: 'white', 
@@ -328,11 +437,11 @@ export default function SettingsPage() {
                               borderRadius: 6,
                               fontSize: 13,
                               fontWeight: 500,
-                              cursor: testingId === connection.id ? 'wait' : 'pointer',
-                              opacity: testingId === connection.id ? 0.7 : 1
+                              cursor: (testingId === connection.id || (connection.id === 'trello' && trelloTesting)) ? 'wait' : 'pointer',
+                              opacity: (testingId === connection.id || (connection.id === 'trello' && trelloTesting)) ? 0.7 : 1
                             }}
                           >
-                            {testingId === connection.id ? 'Testing...' : 'Test Connection'}
+                            {(testingId === connection.id || (connection.id === 'trello' && trelloTesting)) ? 'Testing...' : 'Test Connection'}
                           </button>
                           <button
                             onClick={() => handleSaveConnection(connection.id)}
