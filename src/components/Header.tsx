@@ -3,6 +3,7 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { Icons } from './Icons';
+import { useAuthContext, getDisplayName, getInitials } from '@/contexts/AuthContext';
 
 interface HeaderProps {
   title: string;
@@ -14,10 +15,10 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ title, subtitle, showTimeRange = false, timeRange, onTimeRangeChange }) => {
   const router = useRouter();
+  const { user, signOut } = useAuthContext();
 
-  const handleSignOut = () => {
-    // TODO: Replace with Supabase Auth - remove hardcoded credentials
-    sessionStorage.removeItem('isLoggedIn');
+  const handleSignOut = async () => {
+    await signOut();
     router.push('/login');
   };
 
@@ -100,7 +101,7 @@ export const Header: React.FC<HeaderProps> = ({ title, subtitle, showTimeRange =
           fontWeight: 600, 
           fontSize: 13 
         }}>
-          OT
+          {user?.email ? getInitials(user.email) : 'NS'}
         </div>
       </div>
     </header>

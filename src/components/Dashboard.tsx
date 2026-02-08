@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { useAuthContext, getDisplayName } from '@/contexts/AuthContext';
 import { StatCard } from './shared/StatCard';
 import { PipelineBar } from './shared/PipelineBar';
 import { DataTable } from './shared/DataTable';
@@ -62,6 +63,7 @@ const MATERIAL_LABELS = [
 export default function NorthstarDashboard() {
   const { data, loading, error } = useTrelloBoard('build');
   const [activeModal, setActiveModal] = useState<string | null>(null);
+  const { user } = useAuthContext();
 
   // Loading state
   if (loading) {
@@ -69,7 +71,7 @@ export default function NorthstarDashboard() {
       <div style={{ display: 'flex', minHeight: '100vh', background: COLORS.gray100, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
         <Sidebar />
         <main style={{ flex: 1, marginLeft: 220 }}>
-          <Header title="Dashboard" subtitle="Welcome back, Omiah" showTimeRange={false} />
+          <Header title="Dashboard" subtitle={`Welcome back, ${user?.email ? getDisplayName(user.email) : 'User'}`} showTimeRange={false} />
           <div style={{ 
             padding: SPACING[6], 
             display: 'flex', 
@@ -103,7 +105,7 @@ export default function NorthstarDashboard() {
       <div style={{ display: 'flex', minHeight: '100vh', background: COLORS.gray100, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
         <Sidebar />
         <main style={{ flex: 1, marginLeft: 220 }}>
-          <Header title="Dashboard" subtitle="Welcome back, Omiah" showTimeRange={false} />
+          <Header title="Dashboard" subtitle={`Welcome back, ${user?.email ? getDisplayName(user.email) : 'User'}`} showTimeRange={false} />
           <div style={{ 
             padding: SPACING[6], 
             display: 'flex', 
@@ -239,7 +241,7 @@ export default function NorthstarDashboard() {
 
       {/* Main Content */}
       <main style={{ flex: 1, marginLeft: 220 }}>
-        <Header title="Dashboard" subtitle="Welcome back, Omiah" showTimeRange={false} />
+        <Header title="Dashboard" subtitle={`Welcome back, ${user?.email ? getDisplayName(user.email) : 'User'}`} showTimeRange={false} />
 
         {/* Dashboard Content */}
         <div style={{ padding: SPACING[6] }}>

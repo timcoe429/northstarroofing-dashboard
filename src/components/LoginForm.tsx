@@ -2,25 +2,40 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
 
 export const LoginForm: React.FC = () => {
   const router = useRouter();
-  const [email, setEmail] = useState('omiah@northstarroof.com');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError('');
+    setLoading(true);
 
-    // TODO: Replace with Supabase Auth - remove hardcoded credentials
-    if (email === 'omiah@northstarroof.com' && password === 'test123') {
-      sessionStorage.setItem('isLoggedIn', 'true');
-      router.push('/');
-      return;
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        setError('Invalid email or password');
+        return;
+      }
+
+      if (data.user) {
+        router.push('/');
+      }
+    } catch (err) {
+      setError('An error occurred during sign in. Please try again.');
+    } finally {
+      setLoading(false);
     }
-
-    setError('Invalid email or password');
   };
 
   return (
@@ -59,20 +74,21 @@ export const LoginForm: React.FC = () => {
       </label>
       <button
         type="submit"
+        disabled={loading}
         style={{
           marginTop: 6,
           width: '100%',
           padding: '12px 16px',
           borderRadius: 10,
           border: 'none',
-          background: '#00293f',
+          background: loading ? '#64748b' : '#00293f',
           color: 'white',
           fontWeight: 600,
-          cursor: 'pointer',
+          cursor: loading ? 'not-allowed' : 'pointer',
           fontSize: 14
         }}
       >
-        Sign In
+        {loading ? 'Signing In...' : 'Sign In'}
       </button>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 }}>
         <span style={{ fontSize: 11, color: '#64748b' }} />
