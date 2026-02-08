@@ -31,8 +31,24 @@ export function useTrelloBoard(boardType: 'sales' | 'build'): UseTrelloBoardRetu
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Get credentials from localStorage (fallback for now)
+  // Get credentials from environment variables first, then localStorage
   const getCredentials = useCallback((): TrelloCredentials | null => {
+    // First, check for environment variables
+    const envApiKey = process.env.NEXT_PUBLIC_TRELLO_API_KEY;
+    const envToken = process.env.NEXT_PUBLIC_TRELLO_TOKEN;
+    const envSalesBoardId = process.env.NEXT_PUBLIC_TRELLO_SALES_BOARD_ID;
+    const envBuildBoardId = process.env.NEXT_PUBLIC_TRELLO_BUILD_BOARD_ID;
+
+    if (envApiKey && envToken && envApiKey !== 'your_api_key_here' && envToken !== 'your_token_here') {
+      return {
+        apiKey: envApiKey,
+        token: envToken,
+        salesBoardId: envSalesBoardId || '',
+        buildBoardId: envBuildBoardId || '',
+      };
+    }
+
+    // Fallback to localStorage
     try {
       const stored = localStorage.getItem('trello-credentials');
       if (!stored) return null;
@@ -170,8 +186,25 @@ export function useTrelloBoards() {
 export function useTrelloCredentials() {
   const [credentials, setCredentials] = useState<TrelloCredentials | null>(null);
 
-  // Load credentials from localStorage
+  // Load credentials from environment variables first, then localStorage
   useEffect(() => {
+    // Check for environment variables first
+    const envApiKey = process.env.NEXT_PUBLIC_TRELLO_API_KEY;
+    const envToken = process.env.NEXT_PUBLIC_TRELLO_TOKEN;
+    const envSalesBoardId = process.env.NEXT_PUBLIC_TRELLO_SALES_BOARD_ID;
+    const envBuildBoardId = process.env.NEXT_PUBLIC_TRELLO_BUILD_BOARD_ID;
+
+    if (envApiKey && envToken && envApiKey !== 'your_api_key_here' && envToken !== 'your_token_here') {
+      setCredentials({
+        apiKey: envApiKey,
+        token: envToken,
+        salesBoardId: envSalesBoardId || '',
+        buildBoardId: envBuildBoardId || '',
+      });
+      return;
+    }
+
+    // Fallback to localStorage
     try {
       const stored = localStorage.getItem('trello-credentials');
       if (stored) {
