@@ -42,7 +42,21 @@ export function parseCustomFields(
     const fieldName = fieldMap.get(item.idCustomField);
     if (!fieldName) return;
 
-    const numericValue = item.value.number ? parseFloat(item.value.number) : 0;
+    // Debug logging to see what data is coming back
+    console.log('Card:', card.name, 'Field:', fieldName, 'Value:', JSON.stringify(item.value));
+
+    // Parse numeric value from either number or text field
+    let numericValue = 0;
+    if (item.value.number !== undefined) {
+      numericValue = parseFloat(item.value.number);
+    } else if (item.value.text !== undefined) {
+      // Strip currency symbols, commas, spaces and parse
+      const cleanedText = item.value.text.replace(/[\$,\s]/g, '');
+      const parsed = parseFloat(cleanedText);
+      if (!isNaN(parsed)) {
+        numericValue = parsed;
+      }
+    }
 
     // Map field names to financial properties
     if (fieldName.includes('contract') && fieldName.includes('amount')) {

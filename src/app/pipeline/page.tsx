@@ -3,12 +3,16 @@
 import React, { useState } from 'react';
 import { Sidebar } from '@/components/Sidebar';
 import { Header } from '@/components/Header';
-import { StatCard } from '@/components/StatCard';
-import { PipelineFunnel } from '@/components/PipelineFunnel';
-import { ActionAlerts } from '@/components/ActionAlerts';
+import { StatCard } from '@/components/shared/StatCard';
+import { PipelineBar } from '@/components/shared/PipelineBar';
+import { AlertCard } from '@/components/shared/AlertCard';
+import { DataTable } from '@/components/shared/DataTable';
+import { Modal } from '@/components/shared/Modal';
 import { MaterialBreakdown } from '@/components/MaterialBreakdown';
-import { PipelineTable } from '@/components/PipelineTable';
-import { Icons } from '@/components/Icons';
+import { PipelineBreakdownContent } from '@/components/modals/PipelineBreakdown';
+import { ProfitByMaterialContent } from '@/components/modals/ProfitByMaterial';
+import { EstimatesDetailContent } from '@/components/modals/EstimatesDetail';
+import { WinLossAnalysisContent } from '@/components/modals/WinLossAnalysis';
 import { useTrelloBoard } from '@/hooks/useTrelloData';
 import { 
   parseCustomFields, 
@@ -16,24 +20,12 @@ import {
   getCardsByLists,
   formatCurrency, 
   calculateDaysInColumn,
-  groupCardsByList,
   sumContractAmounts,
   sumNetProfit,
   getCardListName
 } from '@/utils/trello-helpers';
+import { COLORS, SPACING, TYPOGRAPHY } from '@/styles/constants';
 import type { TrelloCard, TrelloList } from '@/types';
-
-// Material type labels for the breakdown chart
-const MATERIAL_LABELS = [
-  'Asphalt',
-  'Synthetic', 
-  'TPO',
-  'Standing Seam Metal',
-  'Wood Shingle',
-  'Pro Panel',
-  'Corrugated Metal',
-  'Asphalt-Presidential'
-];
 
 // Pipeline column names in order
 const PIPELINE_COLUMNS = [
@@ -55,42 +47,32 @@ const ACTIVE_PIPELINE_COLUMNS = [
   'Follow-Up'
 ];
 
-interface AlertItem {
-  type: 'warning' | 'critical' | 'healthy';
-  title: string;
-  count: number;
-  cards: Array<{
-    address: string;
-    days: number;
-  }>;
-}
-
-interface MaterialBreakdown {
-  label: string;
-  count: number;
-  totalValue: number;
-}
+// Material type labels for breakdown
+const MATERIAL_LABELS = [
+  'Asphalt',
+  'Synthetic', 
+  'TPO',
+  'Standing Seam Metal',
+  'Wood Shingle',
+  'Pro Panel',
+  'Corrugated Metal',
+  'Asphalt-Presidential'
+];
 
 export default function PipelinePage() {
   const { data, loading, error, refresh } = useTrelloBoard('sales');
   const [timeRange, setTimeRange] = useState('6mo');
-  const [expandedAlert, setExpandedAlert] = useState<string | null>(null);
-  const [tableSort, setTableSort] = useState<{ column: string; direction: 'asc' | 'desc' }>({
-    column: 'daysInStage',
-    direction: 'desc'
-  });
-  const [stageFilter, setStageFilter] = useState<string>('all');
-  const [labelFilter, setLabelFilter] = useState<string[]>([]);
+  const [activeModal, setActiveModal] = useState<string | null>(null);
 
   // Loading state
   if (loading) {
     return (
-      <div style={{ display: 'flex', minHeight: '100vh', background: '#f1f5f9' }}>
+      <div style={{ display: 'flex', minHeight: '100vh', background: COLORS.gray100 }}>
         <Sidebar />
         <main style={{ flex: 1, marginLeft: 220 }}>
           <Header timeRange={timeRange} onTimeRangeChange={setTimeRange} />
           <div style={{ 
-            padding: 24, 
+            padding: SPACING[6], 
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'center',
@@ -108,7 +90,9 @@ export default function PipelinePage() {
                   margin: '0 auto 16px'
                 }}
               />
-              <p style={{ color: '#64748b', fontSize: 14 }}>Loading pipeline data...</p>
+              <p style={{ color: COLORS.gray500, fontSize: TYPOGRAPHY.fontSize.lg }}>
+                Loading pipeline data...
+              </p>
             </div>
           </div>
         </main>
@@ -119,60 +103,26 @@ export default function PipelinePage() {
   // Error state
   if (error) {
     return (
-      <div style={{ display: 'flex', minHeight: '100vh', background: '#f1f5f9' }}>
+      <div style={{ display: 'flex', minHeight: '100vh', background: COLORS.gray100 }}>
         <Sidebar />
         <main style={{ flex: 1, marginLeft: 220 }}>
           <Header timeRange={timeRange} onTimeRangeChange={setTimeRange} />
           <div style={{ 
-            padding: 24, 
+            padding: SPACING[6], 
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'center',
             height: 'calc(100vh - 120px)'
           }}>
-            <div style={{ 
-              textAlign: 'center',
-              background: 'white',
-              padding: 32,
-              borderRadius: 10,
-              border: '1px solid #e8ecf0',
-              maxWidth: 400
-            }}>
-              <Icons.AlertCircle />
-              <h3 style={{ color: '#00293f', margin: '16px 0 8px', fontSize: 18 }}>
-                Connection Error
-              </h3>
-              <p style={{ color: '#64748b', margin: '0 0 20px', fontSize: 14 }}>
-                {error}
-              </p>
-              <button
-                onClick={refresh}
-                style={{
-                  background: '#00293f',
-                  color: 'white',
-                  border: 'none',
-                  padding: '10px 20px',
-                  borderRadius: 6,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  marginRight: 12
-                }}
-              >
-                Try Again
-              </button>
-              <a
-                href="/settings"
-                style={{
-                  color: '#00293f',
-                  textDecoration: 'none',
-                  fontSize: 13,
-                  fontWeight: 600
-                }}
-              >
-                Check Settings
-              </a>
-            </div>
+            <AlertCard
+              title="Connection Error"
+              alerts={[]}
+              type="critical"
+              emptyState={{
+                title: "Unable to connect to Trello",
+                message: error
+              }}
+            />
           </div>
         </main>
       </div>
@@ -182,55 +132,33 @@ export default function PipelinePage() {
   // No data state
   if (!data) {
     return (
-      <div style={{ display: 'flex', minHeight: '100vh', background: '#f1f5f9' }}>
+      <div style={{ display: 'flex', minHeight: '100vh', background: COLORS.gray100 }}>
         <Sidebar />
         <main style={{ flex: 1, marginLeft: 220 }}>
           <Header timeRange={timeRange} onTimeRangeChange={setTimeRange} />
           <div style={{ 
-            padding: 24, 
+            padding: SPACING[6], 
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'center',
             height: 'calc(100vh - 120px)'
           }}>
-            <div style={{ 
-              textAlign: 'center',
-              background: 'white',
-              padding: 32,
-              borderRadius: 10,
-              border: '1px solid #e8ecf0',
-              maxWidth: 400
-            }}>
-              <Icons.Link />
-              <h3 style={{ color: '#00293f', margin: '16px 0 8px', fontSize: 18 }}>
-                Connect Trello
-              </h3>
-              <p style={{ color: '#64748b', margin: '0 0 20px', fontSize: 14 }}>
-                Connect your Trello account to view pipeline data.
-              </p>
-              <a
-                href="/settings"
-                style={{
-                  background: '#00293f',
-                  color: 'white',
-                  textDecoration: 'none',
-                  padding: '10px 20px',
-                  borderRadius: 6,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  display: 'inline-block'
-                }}
-              >
-                Go to Settings
-              </a>
-            </div>
+            <AlertCard
+              title="Connect Trello"
+              alerts={[]}
+              type="info"
+              emptyState={{
+                title: "Trello not connected",
+                message: "Connect your Trello account to view pipeline data."
+              }}
+            />
           </div>
         </main>
       </div>
     );
   }
 
-  // Calculate KPIs and data for components
+  // Calculate data for components
   const { cards, lists, customFields } = data;
   
   // Get active pipeline cards (exclude Won and Lost/Dead)
@@ -256,192 +184,328 @@ export default function PipelinePage() {
   const totalDecided = wonCards.length + lostCards.length;
   const conversionRate = totalDecided > 0 ? (wonCards.length / totalDecided) * 100 : 0;
 
-  // Prepare funnel data
-  const funnelStages = [
-    {
-      name: 'New Lead',
-      count: newLeadCards.length,
-      value: sumContractAmounts(newLeadCards, customFields)
-    },
-    {
-      name: 'Need Quote',
-      count: needQuoteCards.length,
-      value: sumContractAmounts(needQuoteCards, customFields)
-    },
-    {
-      name: 'Estimating',
-      count: estimatingCards.length,
-      value: sumContractAmounts(estimatingCards, customFields)
-    },
-    {
-      name: 'Estimate Sent',
-      count: estimatesSentCards.length,
-      value: sumContractAmounts(estimatesSentCards, customFields)
-    },
-    {
-      name: 'Follow-Up',
-      count: followUpCards.length,
-      value: sumContractAmounts(followUpCards, customFields)
-    },
-    {
-      name: 'Won',
-      count: wonCards.length,
-      value: sumContractAmounts(wonCards, customFields),
-      isWon: true
+  // Prepare data for modals
+  const pipelineBreakdownData = ACTIVE_PIPELINE_COLUMNS.map(stage => {
+    const stageCards = getCardsByList(cards, lists, stage);
+    const stageValue = sumContractAmounts(stageCards, customFields);
+    return {
+      stage,
+      count: stageCards.length,
+      value: stageValue,
+      percentage: pipelineValue > 0 ? (stageValue / pipelineValue) * 100 : 0
+    };
+  });
+
+  // Generate action alerts
+  const generateAlerts = () => {
+    const alerts = [];
+
+    // Need Quote alerts
+    const needQuote3Plus = needQuoteCards.filter(card => calculateDaysInColumn(card) >= 3);
+    const needQuote5Plus = needQuoteCards.filter(card => calculateDaysInColumn(card) >= 5);
+
+    if (needQuote5Plus.length > 0) {
+      alerts.push({
+        id: 'need-quote-critical',
+        title: 'Critical: Quotes Overdue',
+        message: `${needQuote5Plus.length} leads have been waiting 5+ days for quotes!`,
+        count: needQuote5Plus.length,
+        items: needQuote5Plus.map(card => ({
+          label: card.name,
+          value: `${calculateDaysInColumn(card)} days`,
+          color: COLORS.red
+        }))
+      });
+    } else if (needQuote3Plus.length > 0) {
+      alerts.push({
+        id: 'need-quote-warning',
+        title: 'Quotes Needed',
+        message: `${needQuote3Plus.length} leads waiting for quotes`,
+        count: needQuote3Plus.length,
+        items: needQuote3Plus.map(card => ({
+          label: card.name,
+          value: `${calculateDaysInColumn(card)} days`,
+          color: '#856404'
+        }))
+      });
     }
-  ];
+
+    // Add other alerts...
+    return alerts;
+  };
+
+  const alerts = generateAlerts();
 
   return (
     <div style={{ 
       display: 'flex', 
       minHeight: '100vh', 
-      background: '#f1f5f9', 
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' 
+      background: COLORS.gray100, 
+      fontFamily: TYPOGRAPHY.fontFamily 
     }}>
+      {/* Modals */}
+      <Modal 
+        isOpen={activeModal === 'pipelineValue'} 
+        onClose={() => setActiveModal(null)} 
+        title="Pipeline Breakdown"
+      >
+        <PipelineBreakdownContent data={pipelineBreakdownData} />
+      </Modal>
+      
+      <Modal 
+        isOpen={activeModal === 'potentialProfit'} 
+        onClose={() => setActiveModal(null)} 
+        title="Profit by Material"
+      >
+        <ProfitByMaterialContent data={[]} />
+      </Modal>
+      
+      <Modal 
+        isOpen={activeModal === 'estimatesOut'} 
+        onClose={() => setActiveModal(null)} 
+        title="Estimates Detail"
+      >
+        <EstimatesDetailContent data={[]} />
+      </Modal>
+      
+      <Modal 
+        isOpen={activeModal === 'conversionRate'} 
+        onClose={() => setActiveModal(null)} 
+        title="Win/Loss Analysis"
+      >
+        <WinLossAnalysisContent data={{
+          won: { count: wonCards.length, value: sumContractAmounts(wonCards, customFields), materials: [] },
+          lost: { count: lostCards.length, value: sumContractAmounts(lostCards, customFields), materials: [] },
+          conversionRate
+        }} />
+      </Modal>
+
       <Sidebar />
       
       <main style={{ flex: 1, marginLeft: 220 }}>
         <Header timeRange={timeRange} onTimeRangeChange={setTimeRange} />
         
-        <div style={{ padding: 24 }}>
-          {/* Page Title with Refresh Button */}
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center',
-            marginBottom: 24 
-          }}>
+        <div style={{ padding: SPACING[6] }}>
+          {/* Page Title */}
+          <div style={{ marginBottom: SPACING.sectionMargin }}>
             <h1 style={{ 
-              fontSize: 24, 
-              fontWeight: 700, 
-              color: '#00293f', 
-              margin: 0 
+              fontSize: TYPOGRAPHY.fontSize['3xl'], 
+              fontWeight: TYPOGRAPHY.fontWeight.bold, 
+              color: COLORS.navy, 
+              margin: 0,
+              marginBottom: SPACING[1]
             }}>
-              Sales Pipeline
+              Pipeline
             </h1>
-            <button
-              onClick={refresh}
-              style={{
-                background: 'white',
-                border: '1px solid #e8ecf0',
-                borderRadius: 6,
-                padding: '8px 16px',
-                fontSize: 13,
-                fontWeight: 600,
-                color: '#00293f',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8
-              }}
-            >
-              <Icons.Search />
-              Refresh
-            </button>
+            <p style={{
+              fontSize: TYPOGRAPHY.fontSize.lg,
+              color: COLORS.gray500,
+              margin: 0
+            }}>
+              Sales pipeline overview
+            </p>
           </div>
 
-          {/* Top KPI Cards */}
+          {/* Top Stats Row */}
           <div style={{ 
             display: 'grid', 
             gridTemplateColumns: 'repeat(4, 1fr)', 
-            gap: 16, 
-            marginBottom: 24 
+            gap: SPACING.gridGap, 
+            marginBottom: SPACING.sectionMargin 
           }}>
             <StatCard 
               label="Pipeline Value"
               value={formatCurrency(pipelineValue)}
               subtext={`${activePipelineCards.length} active leads`}
               icon="🚀"
-              color="#00293f"
+              color={COLORS.navy}
+              onClick={() => setActiveModal('pipelineValue')}
             />
             <StatCard 
               label="Potential Profit"
               value={formatCurrency(potentialProfit)}
               subtext={`${profitMargin.toFixed(1)}% margin`}
               icon="💰"
-              color="#059669"
+              color={COLORS.success}
+              onClick={() => setActiveModal('potentialProfit')}
             />
             <StatCard 
               label="Estimates Out"
               value={estimatesOutCount.toString()}
               subtext={formatCurrency(estimatesOutValue)}
               icon="📋"
-              color="#B1000F"
+              color={COLORS.red}
+              onClick={() => setActiveModal('estimatesOut')}
             />
             <StatCard 
               label="Conversion Rate"
               value={totalDecided > 0 ? `${conversionRate.toFixed(1)}%` : 'No data yet'}
               subtext={totalDecided > 0 ? `${wonCards.length} won / ${totalDecided} total decided` : ''}
               icon="🎯"
-              color="#059669"
+              color={COLORS.success}
+              onClick={() => setActiveModal('conversionRate')}
             />
           </div>
 
-          {/* Pipeline Funnel */}
-          <div style={{
-            background: 'white',
-            borderRadius: 10,
-            padding: 18,
-            border: '1px solid #e8ecf0',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-            marginBottom: 24
-          }}>
-            <h3 style={{
-              fontSize: 12,
-              fontWeight: 600,
-              color: '#00293f',
-              margin: '0 0 14px',
-              textTransform: 'uppercase',
-              letterSpacing: 0.3
-            }}>
-              Pipeline Funnel
-            </h3>
-            <PipelineFunnel 
-              stages={funnelStages}
-              lostCount={lostCards.length}
-              lostValue={sumContractAmounts(lostCards, customFields)}
+          {/* Pipeline Row */}
+          <div style={{ marginBottom: SPACING.sectionMargin }}>
+            <PipelineBar 
+              title="Sales Pipeline"
+              segments={[
+                { key: 'newLead', label: 'New Lead', count: newLeadCards.length, color: '#94a3b8' },
+                { key: 'needQuote', label: 'Need Quote', count: needQuoteCards.length, color: '#60a5fa' },
+                { key: 'estimating', label: 'Estimating', count: estimatingCards.length, color: '#fbbf24' },
+                { key: 'estimateSent', label: 'Estimate Sent', count: estimatesSentCards.length, color: COLORS.red },
+                { key: 'followUp', label: 'Follow-Up', count: followUpCards.length, color: '#8b5cf6' },
+                { key: 'won', label: 'Won', count: wonCards.length, color: COLORS.success }
+              ]}
             />
           </div>
 
-          {/* Action Alerts */}
-          <ActionAlerts cards={cards} lists={lists} />
-
-          {/* Two-column layout for Material Breakdown and future component */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: 24,
-            marginBottom: 24
+          {/* Middle Row */}
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: '2fr 1fr', 
+            gap: SPACING.gridGap, 
+            marginBottom: SPACING.sectionMargin 
           }}>
-            {/* Material Breakdown */}
-            <MaterialBreakdown cards={activePipelineCards} customFields={customFields} />
+            <AlertCard
+              title="Needs Attention"
+              alerts={alerts}
+              type={alerts.length > 0 ? 'warning' : 'healthy'}
+              expandable={true}
+              emptyState={{
+                title: "Pipeline is healthy",
+                message: "Nothing overdue 👍"
+              }}
+            />
             
-            {/* Placeholder for future component */}
-            <div style={{
-              background: 'white',
-              borderRadius: 10,
-              padding: 18,
-              border: '1px solid #e8ecf0',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.06)'
-            }}>
-              <h3 style={{
-                fontSize: 12,
-                fontWeight: 600,
-                color: '#00293f',
-                margin: '0 0 14px',
-                textTransform: 'uppercase',
-                letterSpacing: 0.3
-              }}>
-                Additional Insights
-              </h3>
-              <p style={{ color: '#64748b', fontSize: 14, margin: 0 }}>
-                Space for additional pipeline insights...
-              </p>
-            </div>
+            <MaterialBreakdown cards={activePipelineCards} customFields={customFields} />
           </div>
 
           {/* Pipeline Table */}
-          <PipelineTable cards={cards} lists={lists} customFields={customFields} />
+          <DataTable
+            title="All Pipeline Leads"
+            columns={[
+              { 
+                key: 'name', 
+                label: 'Address', 
+                sortable: true,
+                render: (value) => (
+                  <span style={{ fontWeight: TYPOGRAPHY.fontWeight.medium }}>{value}</span>
+                )
+              },
+              { 
+                key: 'stage', 
+                label: 'Stage', 
+                sortable: true,
+                render: (value) => (
+                  <span style={{
+                    background: COLORS.gray100,
+                    color: COLORS.navy,
+                    padding: `4px 8px`,
+                    borderRadius: 4,
+                    fontSize: TYPOGRAPHY.fontSize.xs,
+                    fontWeight: TYPOGRAPHY.fontWeight.medium
+                  }}>
+                    {value}
+                  </span>
+                )
+              },
+              { 
+                key: 'labels', 
+                label: 'Labels',
+                render: (value, row) => (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                    {row.labels?.slice(0, 3).map((label: any) => (
+                      <span
+                        key={label.id}
+                        style={{
+                          background: label.color ? `#${label.color}` : COLORS.gray500,
+                          color: COLORS.white,
+                          padding: '2px 6px',
+                          borderRadius: 3,
+                          fontSize: TYPOGRAPHY.fontSize.xs,
+                          fontWeight: TYPOGRAPHY.fontWeight.medium
+                        }}
+                      >
+                        {label.name}
+                      </span>
+                    ))}
+                    {row.labels?.length > 3 && (
+                      <span style={{
+                        color: COLORS.gray500,
+                        fontSize: TYPOGRAPHY.fontSize.xs,
+                        padding: '2px 4px'
+                      }}>
+                        +{row.labels.length - 3}
+                      </span>
+                    )}
+                  </div>
+                )
+              },
+              { 
+                key: 'contractAmount', 
+                label: 'Contract Amount', 
+                sortable: true,
+                render: (value) => (
+                  <span style={{ 
+                    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+                    color: COLORS.navy 
+                  }}>
+                    {formatCurrency(value)}
+                  </span>
+                )
+              },
+              { 
+                key: 'netProfit', 
+                label: 'Net Profit', 
+                sortable: true,
+                render: (value) => (
+                  <span style={{ 
+                    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+                    color: value >= 0 ? COLORS.success : COLORS.red
+                  }}>
+                    {formatCurrency(value)}
+                  </span>
+                )
+              },
+              { 
+                key: 'daysInStage', 
+                label: 'Days in Stage', 
+                sortable: true,
+                render: (value) => (
+                  <span style={{ 
+                    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+                    color: value < 3 ? COLORS.success : value <= 5 ? '#856404' : COLORS.red
+                  }}>
+                    {value}
+                  </span>
+                )
+              }
+            ]}
+            data={activePipelineCards.map(card => {
+              const financials = parseCustomFields(card, customFields);
+              return {
+                id: card.id,
+                name: card.name,
+                stage: getCardListName(card, lists),
+                labels: card.labels,
+                contractAmount: financials.contractAmount,
+                netProfit: financials.netProfit,
+                daysInStage: calculateDaysInColumn(card)
+              };
+            })}
+            sortable={true}
+            totalsRow={{
+              name: `Total (${activePipelineCards.length} leads)`,
+              stage: '',
+              labels: '',
+              contractAmount: pipelineValue,
+              netProfit: potentialProfit,
+              daysInStage: ''
+            }}
+          />
         </div>
       </main>
     </div>
