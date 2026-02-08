@@ -5,11 +5,14 @@ import { useRouter } from 'next/navigation';
 import { Icons } from './Icons';
 
 interface HeaderProps {
-  timeRange: string;
+  title: string;
+  subtitle: string;
+  showTimeRange?: boolean;
+  timeRange?: string;
   onTimeRangeChange?: (range: string) => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ timeRange, onTimeRangeChange }) => {
+export const Header: React.FC<HeaderProps> = ({ title, subtitle, showTimeRange = false, timeRange, onTimeRangeChange }) => {
   const router = useRouter();
 
   const handleSignOut = () => {
@@ -31,31 +34,31 @@ export const Header: React.FC<HeaderProps> = ({ timeRange, onTimeRangeChange }) 
       zIndex: 50 
     }}>
       <div>
-        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#00293f' }}>Dashboard</h1>
-        <p style={{ margin: '2px 0 0', fontSize: 12, color: '#64748b' }}>Welcome back, Omiah</p>
+        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#00293f' }}>{title}</h1>
+        <p style={{ margin: '2px 0 0', fontSize: 12, color: '#64748b' }}>{subtitle}</p>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-        {/* Time Range Dropdown */}
-        <select
-          value={timeRange}
-          onChange={(e) => onTimeRangeChange?.(e.target.value)}
-          disabled={!onTimeRangeChange}
-          style={{ 
-            background: '#f8fafc', 
-            border: '1px solid #e2e8f0', 
-            borderRadius: 6, 
-            padding: '8px 12px', 
-            color: '#334155', 
-            fontSize: 12, 
-            cursor: onTimeRangeChange ? 'pointer' : 'default',
-            opacity: onTimeRangeChange ? 1 : 0.6
-          }}
-        >
-          <option value="1mo">Last Month</option>
-          <option value="3mo">Last 3 Months</option>
-          <option value="6mo">Last 6 Months</option>
-          <option value="ytd">Year to Date</option>
-        </select>
+        {/* Time Range Dropdown - only show if enabled */}
+        {showTimeRange && timeRange && onTimeRangeChange && (
+          <select
+            value={timeRange}
+            onChange={(e) => onTimeRangeChange(e.target.value)}
+            style={{ 
+              background: '#f8fafc', 
+              border: '1px solid #e2e8f0', 
+              borderRadius: 6, 
+              padding: '8px 12px', 
+              color: '#334155', 
+              fontSize: 12, 
+              cursor: 'pointer'
+            }}
+          >
+            <option value="1mo">Last Month</option>
+            <option value="3mo">Last 3 Months</option>
+            <option value="6mo">Last 6 Months</option>
+            <option value="ytd">Year to Date</option>
+          </select>
+        )}
         {/* Notifications */}
         <button style={{ 
           background: '#f8fafc', 

@@ -18,7 +18,7 @@ export default function ReportsPage() {
       <Sidebar />
       
       <main style={{ flex: 1, marginLeft: 220 }}>
-        <Header timeRange={timeRange} onTimeRangeChange={setTimeRange} />
+        <Header title="Reports" subtitle="Reporting and analytics coming soon" showTimeRange={false} />
         
         <div style={{ padding: SPACING[6] }}>
           {/* Page Title */}

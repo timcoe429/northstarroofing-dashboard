@@ -17,10 +17,10 @@ interface NavItem {
 const navItems: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: Icons.Dashboard, href: '/' },
   { id: 'pipeline', label: 'Pipeline', icon: Icons.Pipeline, href: '/pipeline' },
-  { id: 'projects', label: 'Projects', icon: Icons.Projects, href: '/projects' },
   { id: 'sales-board', label: 'Sales Board', icon: Icons.Boards, href: 'https://trello.com/b/WSiRtEMs/sales-estimates', external: true },
   { id: 'build-board', label: 'Build Board', icon: Icons.Boards, href: 'https://trello.com/b/71rgUcQZ/build-jobs', external: true },
-  { id: 'estimates', label: 'Estimates', icon: Icons.Estimates, href: '/estimates' },
+  { id: 'estimator', label: 'Estimator', icon: Icons.Estimates, href: 'https://estimator.northstarroof.com', external: true },
+  { id: 'invoices', label: 'Invoices', icon: Icons.Finances, href: 'https://northstarroof.com/invoice/', external: true },
   { id: 'customers', label: 'Customers', icon: Icons.Customers, href: '/customers' },
   { id: 'finances', label: 'Finances', icon: Icons.Finances, href: '/finances' },
   { id: 'reports', label: 'Reports', icon: Icons.Reports, href: '/reports' },

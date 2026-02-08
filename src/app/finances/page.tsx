@@ -18,7 +18,7 @@ export default function FinancesPage() {
       <Sidebar />
       
       <main style={{ flex: 1, marginLeft: 220 }}>
-        <Header timeRange={timeRange} onTimeRangeChange={setTimeRange} />
+        <Header title="Finances" subtitle="Financial management coming soon" showTimeRange={false} />
         
         <div style={{ padding: SPACING[6] }}>
           {/* Page Title */}

@@ -162,7 +162,7 @@ export default function PipelinePage() {
       <div style={{ display: 'flex', minHeight: '100vh', background: COLORS.gray100 }}>
         <Sidebar />
         <main style={{ flex: 1, marginLeft: 220 }}>
-          <Header timeRange={timeRange} onTimeRangeChange={setTimeRange} />
+          <Header title="Pipeline" subtitle="Sales pipeline overview" showTimeRange={false} />
           <div style={{ 
             padding: SPACING[6], 
             display: 'flex', 
@@ -198,7 +198,7 @@ export default function PipelinePage() {
       <div style={{ display: 'flex', minHeight: '100vh', background: COLORS.gray100 }}>
         <Sidebar />
         <main style={{ flex: 1, marginLeft: 220 }}>
-          <Header timeRange={timeRange} onTimeRangeChange={setTimeRange} />
+          <Header title="Pipeline" subtitle="Sales pipeline overview" showTimeRange={false} />
           <div style={{ 
             padding: SPACING[6], 
             display: 'flex', 
@@ -227,7 +227,7 @@ export default function PipelinePage() {
       <div style={{ display: 'flex', minHeight: '100vh', background: COLORS.gray100 }}>
         <Sidebar />
         <main style={{ flex: 1, marginLeft: 220 }}>
-          <Header timeRange={timeRange} onTimeRangeChange={setTimeRange} />
+          <Header title="Pipeline" subtitle="Sales pipeline overview" showTimeRange={false} />
           <div style={{ 
             padding: SPACING[6], 
             display: 'flex', 
@@ -395,7 +395,7 @@ export default function PipelinePage() {
       <Sidebar />
       
       <main style={{ flex: 1, marginLeft: 220 }}>
-        <Header timeRange={timeRange} onTimeRangeChange={setTimeRange} />
+        <Header title="Pipeline" subtitle="Sales pipeline overview" showTimeRange={false} />
         
         <div style={{ padding: SPACING[6] }}>
           {/* Page Title */}

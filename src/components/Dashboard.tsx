@@ -14,27 +14,224 @@ import { RevenueDetailContent } from './modals/RevenueDetail';
 import { ProfitDetailContent } from './modals/ProfitDetail';
 import { ActiveProjectsContent } from './modals/ActiveProjects';
 import { AvgJobSizeContent } from './modals/AvgJobSize';
-import { mockData, formatCurrency } from '@/lib/utils';
+import { useTrelloBoard } from '@/hooks/useTrelloData';
+import { 
+  parseCustomFields, 
+  getCardsByList, 
+  getCardsByLists,
+  formatCurrency, 
+  sumContractAmounts,
+  sumNetProfit,
+  getCardListName
+} from '@/utils/trello-helpers';
 import { COLORS, SPACING } from '@/styles/constants';
 
+// Build/Jobs board columns in order
+const BUILD_COLUMNS = [
+  'Ready to Schedule',
+  'Scheduled',
+  'Materials Ordered',
+  'In Progress',
+  'Final Inspection',
+  'Invoice Sent',
+  'Paid',
+  'Warranty / Closeout'
+];
+
+// Active project columns (before invoicing)
+const ACTIVE_COLUMNS = [
+  'Ready to Schedule',
+  'Scheduled', 
+  'Materials Ordered',
+  'In Progress',
+  'Final Inspection'
+];
+
+// Material type labels (same as Pipeline)
+const MATERIAL_LABELS = [
+  'Asphalt',
+  'Synthetic', 
+  'TPO',
+  'Standing Seam Metal',
+  'Wood Shingle',
+  'Pro Panel',
+  'Corrugated Metal',
+  'Asphalt-Presidential'
+];
+
 export default function NorthstarDashboard() {
+  const { data, loading, error } = useTrelloBoard('build');
   const [activeModal, setActiveModal] = useState<string | null>(null);
-  const [timeRange, setTimeRange] = useState('6mo');
+
+  // Loading state
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', minHeight: '100vh', background: COLORS.gray100, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+        <Sidebar />
+        <main style={{ flex: 1, marginLeft: 220 }}>
+          <Header title="Dashboard" subtitle="Welcome back, Omiah" showTimeRange={false} />
+          <div style={{ 
+            padding: SPACING[6], 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            height: 'calc(100vh - 120px)'
+          }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ 
+                width: 40, 
+                height: 40, 
+                border: '3px solid #e8ecf0',
+                borderTop: '3px solid #00293f',
+                borderRadius: '50%',
+                margin: '0 auto 16px',
+                animation: 'spin 1s linear infinite'
+              }} />
+              <p style={{ color: COLORS.gray500, fontSize: 16 }}>
+                Loading dashboard data...
+              </p>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div style={{ display: 'flex', minHeight: '100vh', background: COLORS.gray100, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+        <Sidebar />
+        <main style={{ flex: 1, marginLeft: 220 }}>
+          <Header title="Dashboard" subtitle="Welcome back, Omiah" showTimeRange={false} />
+          <div style={{ 
+            padding: SPACING[6], 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            height: 'calc(100vh - 120px)'
+          }}>
+            <div style={{
+              background: COLORS.white,
+              borderRadius: 12,
+              padding: SPACING[8],
+              textAlign: 'center',
+              border: '1px solid #fecaca',
+              maxWidth: 400
+            }}>
+              <h3 style={{ color: COLORS.red, marginBottom: SPACING[4] }}>Connection Error</h3>
+              <p style={{ color: COLORS.gray600, marginBottom: 0 }}>{error}</p>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Extract data or use empty defaults
+  const { cards = [], lists = [], customFields = [] } = data || {};
+  
+  // Calculate KPIs from real data
+  const totalRevenue = sumContractAmounts(cards, customFields);
+  const grossProfit = sumNetProfit(cards, customFields);
+  const profitMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
+  
+  // Active projects: Ready to Schedule through Final Inspection
+  const activeCards = getCardsByLists(cards, lists, ACTIVE_COLUMNS);
+  const inProgressCards = getCardsByList(cards, lists, 'In Progress');
+  
+  // Average job size
+  const avgJobSize = cards.length > 0 ? totalRevenue / cards.length : 0;
+  
+  // Collections data: Invoice Sent vs Paid
+  const invoiceSentCards = getCardsByList(cards, lists, 'Invoice Sent');
+  const paidCards = getCardsByList(cards, lists, 'Paid');
+  const invoiceSentValue = sumContractAmounts(invoiceSentCards, customFields);
+  const paidValue = sumContractAmounts(paidCards, customFields);
+  const collectionRate = (invoiceSentValue + paidValue) > 0 ? (paidValue / (invoiceSentValue + paidValue)) * 100 : 0;
+  
+  // Pipeline segments for Build/Jobs board
+  const pipelineSegments = BUILD_COLUMNS.slice(0, -1).map((column, index) => { // Exclude Warranty/Closeout
+    const columnCards = getCardsByList(cards, lists, column);
+    const colors = ['#94a3b8', '#60a5fa', '#fbbf24', COLORS.red, '#8b5cf6', '#22c55e', COLORS.success];
+    return {
+      key: column.toLowerCase().replace(/\s+/g, ''),
+      label: column,
+      count: columnCards.length,
+      color: colors[index] || COLORS.gray500
+    };
+  });
+  
+  // Job types breakdown - map to expected interface
+  const replacementCards = cards.filter(card => 
+    Array.isArray(card.labels) && card.labels.some(label => 
+      ['Asphalt', 'Synthetic', 'TPO', 'Standing Seam Metal', 'Wood Shingle', 'Pro Panel', 'Corrugated Metal', 'Asphalt-Presidential'].includes(label.name)
+    )
+  );
+  const repairCards = cards.filter(card => 
+    Array.isArray(card.labels) && card.labels.some(label => label.name === 'Repair')
+  );
+  const inspectionCards = cards.filter(card => 
+    Array.isArray(card.labels) && card.labels.some(label => label.name === 'Insurance')
+  );
+  const gutterCards = cards.filter(card => 
+    card.name.toLowerCase().includes('gutter')
+  );
+  
+  const jobTypeData = {
+    replacements: replacementCards.length,
+    repairs: repairCards.length,
+    inspections: inspectionCards.length,
+    gutters: gutterCards.length
+  };
+  
+  // Recent projects table data
+  const recentProjectsData = activeCards.slice(0, 8).map(card => {
+    const financials = parseCustomFields(card, customFields);
+    const stage = getCardListName(card, lists);
+    const materialLabel = Array.isArray(card.labels) 
+      ? card.labels.find(label => MATERIAL_LABELS.includes(label.name))?.name || 'Other'
+      : 'Other';
+    
+    return {
+      project: card.name,
+      type: materialLabel,
+      stage,
+      value: financials.contractAmount,
+      status: stage
+    };
+  });
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: COLORS.gray100, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
       {/* Modals */}
       <Modal isOpen={activeModal === 'revenue'} onClose={() => setActiveModal(null)} title="Revenue Breakdown">
-        <RevenueDetailContent data={mockData.revenueDetails} />
+        <RevenueDetailContent data={[]} />
       </Modal>
       <Modal isOpen={activeModal === 'profit'} onClose={() => setActiveModal(null)} title="Profit Analysis">
-        <ProfitDetailContent data={mockData.profitDetails} />
+        <ProfitDetailContent data={{ byType: [], byMonth: [] }} />
       </Modal>
       <Modal isOpen={activeModal === 'activeProjects'} onClose={() => setActiveModal(null)} title="Active Projects">
-        <ActiveProjectsContent projects={mockData.activeProjects} />
+        <ActiveProjectsContent projects={activeCards.map((card, index) => {
+          const financials = parseCustomFields(card, customFields);
+          const materialLabel = Array.isArray(card.labels) 
+            ? card.labels.find(label => MATERIAL_LABELS.includes(label.name))?.name || 'Other'
+            : 'Other';
+          return {
+            id: index + 1,
+            name: card.name,
+            type: materialLabel,
+            value: financials.contractAmount,
+            status: getCardListName(card, lists),
+            location: 'TBD',
+            startDate: new Date().toISOString().split('T')[0],
+            crew: 'TBD',
+            completion: 0
+          };
+        })} />
       </Modal>
       <Modal isOpen={activeModal === 'avgJobSize'} onClose={() => setActiveModal(null)} title="Average Job Size Analysis">
-        <AvgJobSizeContent data={mockData.avgJobDetails} />
+        <AvgJobSizeContent data={{ byType: [], trend: [] }} />
       </Modal>
 
       {/* Sidebar */}
@@ -42,7 +239,7 @@ export default function NorthstarDashboard() {
 
       {/* Main Content */}
       <main style={{ flex: 1, marginLeft: 220 }}>
-        <Header timeRange={timeRange} onTimeRangeChange={setTimeRange} />
+        <Header title="Dashboard" subtitle="Welcome back, Omiah" showTimeRange={false} />
 
         {/* Dashboard Content */}
         <div style={{ padding: SPACING[6] }}>
@@ -50,35 +247,32 @@ export default function NorthstarDashboard() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: SPACING.gridGap, marginBottom: SPACING.sectionMargin }}>
             <StatCard 
               label="Total Revenue" 
-              value={formatCurrency(mockData.financials.totalRevenue)} 
-              subtext="+18% from last period" 
-              trend={18} 
+              value={formatCurrency(totalRevenue)} 
+              subtext={cards.length > 0 ? `${cards.length} total projects` : 'No projects yet'} 
               icon="💰" 
               color={COLORS.navy} 
               onClick={() => setActiveModal('revenue')} 
             />
             <StatCard 
               label="Gross Profit" 
-              value={formatCurrency(mockData.financials.profit)} 
-              subtext="22% margin" 
-              trend={0} 
+              value={formatCurrency(grossProfit)} 
+              subtext={`${profitMargin.toFixed(1)}% margin`} 
               icon="📈" 
               color={COLORS.success} 
               onClick={() => setActiveModal('profit')} 
             />
             <StatCard 
               label="Active Projects" 
-              value={mockData.pipeline.inProgress + mockData.pipeline.scheduled} 
-              subtext={`${mockData.pipeline.inProgress} in progress`} 
+              value={activeCards.length.toString()} 
+              subtext={`${inProgressCards.length} in progress`} 
               icon="🏗️" 
-              color={COLORS.red} 
+              color={COLORS.info} 
               onClick={() => setActiveModal('activeProjects')} 
             />
             <StatCard 
               label="Avg Job Size" 
-              value={formatCurrency(mockData.financials.avgJobSize)} 
-              subtext="+12% YoY" 
-              trend={12} 
+              value={formatCurrency(avgJobSize)} 
+              subtext={cards.length > 0 ? `Based on ${cards.length} projects` : 'No data yet'} 
               icon="📊" 
               color={COLORS.navy} 
               onClick={() => setActiveModal('avgJobSize')} 
@@ -89,34 +283,28 @@ export default function NorthstarDashboard() {
           <div style={{ marginBottom: SPACING.sectionMargin }}>
             <PipelineBar 
               title="Project Pipeline"
-              segments={[
-                { key: 'leads', label: 'Leads', count: mockData.pipeline.leads, color: '#94a3b8' },
-                { key: 'estimates', label: 'Estimates', count: mockData.pipeline.estimates, color: '#60a5fa' },
-                { key: 'scheduled', label: 'Scheduled', count: mockData.pipeline.scheduled, color: '#fbbf24' },
-                { key: 'inProgress', label: 'In Progress', count: mockData.pipeline.inProgress, color: COLORS.red },
-                { key: 'completed', label: 'Completed', count: mockData.pipeline.completed, color: COLORS.success }
-              ]}
+              segments={pipelineSegments}
             />
           </div>
 
           {/* Middle Row - Charts */}
           <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: SPACING.gridGap, marginBottom: SPACING.sectionMargin }}>
-            <RevenueChart data={mockData.monthlyTrend} />
-            <JobTypesCard data={mockData.jobTypes} />
-            <CollectionRing collected={mockData.financials.collected} uncollected={mockData.financials.uncollected} />
+            <RevenueChart data={[]} />
+            <JobTypesCard data={jobTypeData} />
+            <CollectionRing collected={paidValue} uncollected={invoiceSentValue} />
           </div>
 
           {/* Recent Projects */}
           <DataTable
             title="Recent Projects"
             columns={[
-              { key: 'name', label: 'Project', sortable: true, render: (value) => (
+              { key: 'project', label: 'Project', sortable: true, render: (value) => (
                 <span style={{ fontWeight: 600, color: COLORS.navy, fontSize: 12 }}>{value}</span>
               )},
-              { key: 'type', label: 'Type', sortable: true, render: (value) => (
+              { key: 'type', label: 'Material', sortable: true, render: (value) => (
                 <span style={{ color: '#334155', fontSize: 12 }}>{value}</span>
               )},
-              { key: 'location', label: 'Location', sortable: true, render: (value) => (
+              { key: 'stage', label: 'Stage', sortable: true, render: (value) => (
                 <span style={{ color: COLORS.gray500, fontSize: 12 }}>{value}</span>
               )},
               { key: 'value', label: 'Value', sortable: true, render: (value) => (
@@ -126,7 +314,9 @@ export default function NorthstarDashboard() {
                 const statusColors: Record<string, { bg: string; text: string }> = {
                   'In Progress': { bg: '#fef3c7', text: '#92400e' },
                   'Scheduled': { bg: '#dbeafe', text: '#1e40af' },
-                  'Completed': { bg: '#d1fae5', text: '#065f46' },
+                  'Ready to Schedule': { bg: '#f3f4f6', text: '#374151' },
+                  'Materials Ordered': { bg: '#e0e7ff', text: '#3730a3' },
+                  'Final Inspection': { bg: '#fef3c7', text: '#92400e' },
                 };
                 const colors = statusColors[value] || { bg: '#f1f5f9', text: COLORS.gray500 };
                 return (
@@ -144,18 +334,12 @@ export default function NorthstarDashboard() {
                 );
               }}
             ]}
-            data={mockData.recentProjects}
+            data={recentProjectsData}
             sortable={true}
             showViewAll={true}
             onViewAll={() => console.log('View all projects')}
+            emptyMessage={activeCards.length === 0 ? "No active projects found. Projects will appear here once added to your Build/Jobs Trello board." : undefined}
           />
-
-          {/* Footer Note */}
-          <div style={{ marginTop: 24, padding: '14px 18px', background: 'rgba(0, 41, 63, 0.04)', borderRadius: 8, borderLeft: '4px solid #00293f' }}>
-            <p style={{ margin: 0, fontSize: 12, color: '#64748b' }}>
-              <strong style={{ color: '#00293f' }}>Mockup Note:</strong> This dashboard uses sample data. Full implementation will pull live data from Trello boards and sync with your estimates and invoicing systems.
-            </p>
-          </div>
         </div>
       </main>
     </div>
