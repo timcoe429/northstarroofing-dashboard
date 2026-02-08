@@ -298,21 +298,7 @@ export default function PipelinePage() {
   const generateAlerts = () => {
     const alerts = [];
 
-    // TODO: REMOVE TEST ALERT — this is hardcoded for visual testing only
-    // Once verified, delete this block and use only real calculateDaysInColumn() data
-    alerts.push({
-      id: 'test-alert',
-      title: 'Test: Quote Overdue',
-      message: '1 lead has been waiting 5+ days for quote',
-      count: 1,
-      items: [{
-        label: '105 Village Ct',
-        value: '5 days',
-        color: COLORS.red
-      }]
-    });
-
-    // Need Quote alerts
+    // Need Quote alerts (3+ days = yellow, 5+ days = red)
     const needQuote3Plus = needQuoteCards.filter(card => calculateDaysInColumn(card) >= 3);
     const needQuote5Plus = needQuoteCards.filter(card => calculateDaysInColumn(card) >= 5);
 
@@ -337,12 +323,73 @@ export default function PipelinePage() {
         items: needQuote3Plus.map(card => ({
           label: card.name,
           value: `${calculateDaysInColumn(card)} days`,
-          color: '#856404'
+          color: COLORS.warning
         }))
       });
     }
 
-    // Add other alerts...
+    // Estimating alerts (5+ days = yellow)
+    const estimating5Plus = estimatingCards.filter(card => calculateDaysInColumn(card) >= 5);
+    if (estimating5Plus.length > 0) {
+      alerts.push({
+        id: 'estimating-warning',
+        title: 'Estimates Taking Too Long',
+        message: `${estimating5Plus.length} estimates have been in progress for 5+ days`,
+        count: estimating5Plus.length,
+        items: estimating5Plus.map(card => ({
+          label: card.name,
+          value: `${calculateDaysInColumn(card)} days`,
+          color: COLORS.warning
+        }))
+      });
+    }
+
+    // Estimate Sent alerts (5+ days = yellow, 7+ days = red)
+    const estimateSent5Plus = estimatesSentCards.filter(card => calculateDaysInColumn(card) >= 5);
+    const estimateSent7Plus = estimatesSentCards.filter(card => calculateDaysInColumn(card) >= 7);
+
+    if (estimateSent7Plus.length > 0) {
+      alerts.push({
+        id: 'estimate-sent-critical',
+        title: 'Critical: Estimates Need Follow-Up',
+        message: `${estimateSent7Plus.length} estimates sent 7+ days ago with no response!`,
+        count: estimateSent7Plus.length,
+        items: estimateSent7Plus.map(card => ({
+          label: card.name,
+          value: `${calculateDaysInColumn(card)} days`,
+          color: COLORS.red
+        }))
+      });
+    } else if (estimateSent5Plus.length > 0) {
+      alerts.push({
+        id: 'estimate-sent-warning',
+        title: 'Estimates Awaiting Response',
+        message: `${estimateSent5Plus.length} estimates sent 5+ days ago`,
+        count: estimateSent5Plus.length,
+        items: estimateSent5Plus.map(card => ({
+          label: card.name,
+          value: `${calculateDaysInColumn(card)} days`,
+          color: COLORS.warning
+        }))
+      });
+    }
+
+    // Follow-Up alerts (7+ days = red)
+    const followUp7Plus = followUpCards.filter(card => calculateDaysInColumn(card) >= 7);
+    if (followUp7Plus.length > 0) {
+      alerts.push({
+        id: 'follow-up-critical',
+        title: 'Critical: Follow-Ups Overdue',
+        message: `${followUp7Plus.length} leads need immediate follow-up (7+ days)!`,
+        count: followUp7Plus.length,
+        items: followUp7Plus.map(card => ({
+          label: card.name,
+          value: `${calculateDaysInColumn(card)} days`,
+          color: COLORS.red
+        }))
+      });
+    }
+
     return alerts;
   };
 
