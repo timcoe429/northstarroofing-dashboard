@@ -25,7 +25,7 @@ import {
   getCardListName
 } from '@/utils/trello-helpers';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/styles/constants';
-import type { TrelloCard, TrelloList } from '@/types';
+import type { TrelloCard, TrelloList, TrelloCustomField } from '@/types';
 
 // Pipeline column names in order
 const PIPELINE_COLUMNS = [
@@ -48,16 +48,108 @@ const ACTIVE_PIPELINE_COLUMNS = [
 ];
 
 // Material type labels for breakdown
-const MATERIAL_LABELS = [
-  'Asphalt',
-  'Synthetic', 
-  'TPO',
-  'Standing Seam Metal',
-  'Wood Shingle',
-  'Pro Panel',
-  'Corrugated Metal',
-  'Asphalt-Presidential'
+const MATERIAL_TYPES = [
+  { label: 'Synthetic', color: '#3B82F6' },
+  { label: 'Asphalt', color: '#00293f' },
+  { label: 'Standing Seam Metal', color: '#64748b' },
+  { label: 'TPO', color: '#0EA5E9' },
+  { label: 'Corrugated Metal', color: '#6366F1' },
+  { label: 'Pro Panel', color: '#8B5CF6' },
+  { label: 'Wood Shingle', color: '#D97706' },
+  { label: 'Asphalt-Presidential', color: '#059669' }
 ];
+
+// Extract just the labels for compatibility
+const MATERIAL_LABELS = MATERIAL_TYPES.map(type => type.label);
+
+// Trello color name to hex mapping
+const mapTrelloColorToHex = (colorName: string): string => {
+  const colorMap: Record<string, string> = {
+    'green': '#22c55e',
+    'yellow': '#eab308', 
+    'orange': '#f97316',
+    'red': '#ef4444',
+    'purple': '#a855f7',
+    'blue': '#3b82f6',
+    'sky': '#0ea5e9',
+    'pink': '#ec4899',
+    'black': '#1e293b',
+    'lime': '#84cc16'
+  };
+  return colorMap[colorName] || '#64748b';
+};
+
+// Data processing functions for modals
+const processMaterialProfitData = (cards: TrelloCard[], customFields: TrelloCustomField[]) => {
+  const materialData = MATERIAL_LABELS.map(material => {
+    const materialCards = cards.filter(card => 
+      Array.isArray(card.labels) && card.labels.some(label => label.name === material)
+    );
+    
+    const revenue = sumContractAmounts(materialCards, customFields);
+    const profit = sumNetProfit(materialCards, customFields);
+    const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
+    
+    return {
+      material,
+      leads: materialCards.length,
+      revenue,
+      profit,
+      margin
+    };
+  }).filter(m => m.leads > 0)
+    .sort((a, b) => b.revenue - a.revenue);
+  
+  return materialData;
+};
+
+const processEstimatesData = (estimatesSentCards: TrelloCard[], followUpCards: TrelloCard[], customFields: TrelloCustomField[], lists: TrelloList[]) => {
+  const allEstimateCards = [...estimatesSentCards, ...followUpCards];
+  
+  return allEstimateCards.map(card => {
+    const financials = parseCustomFields(card, customFields);
+    const stage = getCardListName(card, lists) as 'Estimate Sent' | 'Follow-Up';
+    
+    // Get primary material label
+    const materialLabel = Array.isArray(card.labels) 
+      ? card.labels.find(label => MATERIAL_LABELS.includes(label.name))?.name || 'Unknown'
+      : 'Unknown';
+    
+    return {
+      id: card.id,
+      address: card.name,
+      stage,
+      value: financials.contractAmount,
+      daysInStage: calculateDaysInColumn(card),
+      material: materialLabel
+    };
+  });
+};
+
+const extractMaterialsFromCards = (cards: TrelloCard[], customFields: TrelloCustomField[]) => {
+  const materialMap = new Map<string, { count: number; value: number }>();
+  
+  cards.forEach(card => {
+    if (Array.isArray(card.labels)) {
+      card.labels.forEach(label => {
+        if (MATERIAL_LABELS.includes(label.name)) {
+          const financials = parseCustomFields(card, customFields);
+          const existing = materialMap.get(label.name) || { count: 0, value: 0 };
+          materialMap.set(label.name, {
+            count: existing.count + 1,
+            value: existing.value + financials.contractAmount
+          });
+        }
+      });
+    }
+  });
+  
+  return Array.from(materialMap.entries()).map(([material, data]) => ({
+    material,
+    count: data.count,
+    value: data.value
+  }));
+};
 
 export default function PipelinePage() {
   const { data, loading, error, refresh } = useTrelloBoard('sales');
@@ -196,9 +288,29 @@ export default function PipelinePage() {
     };
   });
 
+  // Process data for modals
+  const materialProfitData = processMaterialProfitData(activePipelineCards, customFields);
+  const estimatesData = processEstimatesData(estimatesSentCards, followUpCards, customFields, lists);
+  const wonMaterials = extractMaterialsFromCards(wonCards, customFields);
+  const lostMaterials = extractMaterialsFromCards(lostCards, customFields);
+
   // Generate action alerts
   const generateAlerts = () => {
     const alerts = [];
+
+    // TODO: REMOVE TEST ALERT — this is hardcoded for visual testing only
+    // Once verified, delete this block and use only real calculateDaysInColumn() data
+    alerts.push({
+      id: 'test-alert',
+      title: 'Test: Quote Overdue',
+      message: '1 lead has been waiting 5+ days for quote',
+      count: 1,
+      items: [{
+        label: '105 Village Ct',
+        value: '5 days',
+        color: COLORS.red
+      }]
+    });
 
     // Need Quote alerts
     const needQuote3Plus = needQuoteCards.filter(card => calculateDaysInColumn(card) >= 3);
@@ -257,7 +369,7 @@ export default function PipelinePage() {
         onClose={() => setActiveModal(null)} 
         title="Profit by Material"
       >
-        <ProfitByMaterialContent data={[]} />
+        <ProfitByMaterialContent data={materialProfitData} />
       </Modal>
       
       <Modal 
@@ -265,7 +377,7 @@ export default function PipelinePage() {
         onClose={() => setActiveModal(null)} 
         title="Estimates Detail"
       >
-        <EstimatesDetailContent data={[]} />
+        <EstimatesDetailContent data={estimatesData} />
       </Modal>
       
       <Modal 
@@ -274,8 +386,8 @@ export default function PipelinePage() {
         title="Win/Loss Analysis"
       >
         <WinLossAnalysisContent data={{
-          won: { count: wonCards.length, value: sumContractAmounts(wonCards, customFields), materials: [] },
-          lost: { count: lostCards.length, value: sumContractAmounts(lostCards, customFields), materials: [] },
+          won: { count: wonCards.length, value: sumContractAmounts(wonCards, customFields), materials: wonMaterials },
+          lost: { count: lostCards.length, value: sumContractAmounts(lostCards, customFields), materials: lostMaterials },
           conversionRate
         }} />
       </Modal>
@@ -385,7 +497,8 @@ export default function PipelinePage() {
 
           {/* Pipeline Table */}
           <DataTable
-            title="All Pipeline Leads"
+            title={`Pipeline Leads (${activePipelineCards.filter(card => card.name !== 'Address').length})`}
+            filterable={true}
             columns={[
               { 
                 key: 'name', 
@@ -413,15 +526,16 @@ export default function PipelinePage() {
                 )
               },
               { 
-                key: 'labels', 
+                key: 'labelsSort', 
                 label: 'Labels',
+                sortable: true,
                 render: (value, row) => (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                    {row.labels?.slice(0, 3).map((label: any) => (
+                    {(Array.isArray(row.labels) ? row.labels.slice(0, 3) : []).map((label: any) => (
                       <span
                         key={label.id}
                         style={{
-                          background: label.color ? `#${label.color}` : COLORS.gray500,
+                          background: label.color ? mapTrelloColorToHex(label.color) : COLORS.gray500,
                           color: COLORS.white,
                           padding: '2px 6px',
                           borderRadius: 3,
@@ -432,7 +546,7 @@ export default function PipelinePage() {
                         {label.name}
                       </span>
                     ))}
-                    {row.labels?.length > 3 && (
+                    {Array.isArray(row.labels) && row.labels.length > 3 && (
                       <span style={{
                         color: COLORS.gray500,
                         fontSize: TYPOGRAPHY.fontSize.xs,
@@ -452,6 +566,19 @@ export default function PipelinePage() {
                   <span style={{ 
                     fontWeight: TYPOGRAPHY.fontWeight.semibold,
                     color: COLORS.navy 
+                  }}>
+                    {formatCurrency(value)}
+                  </span>
+                )
+              },
+              { 
+                key: 'office10Pct', 
+                label: 'Office 10%', 
+                sortable: true,
+                render: (value) => (
+                  <span style={{ 
+                    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+                    color: COLORS.gray700 
                   }}>
                     {formatCurrency(value)}
                   </span>
@@ -484,24 +611,38 @@ export default function PipelinePage() {
                 )
               }
             ]}
-            data={activePipelineCards.map(card => {
-              const financials = parseCustomFields(card, customFields);
-              return {
+            data={activePipelineCards
+              .filter(card => card.name !== 'Address') // Exclude template card
+              .map(card => {
+                const financials = parseCustomFields(card, customFields);
+                return {
                 id: card.id,
                 name: card.name,
                 stage: getCardListName(card, lists),
-                labels: card.labels,
+                labels: Array.isArray(card.labels) ? card.labels : [],
+                labelsSort: Array.isArray(card.labels) && card.labels.length > 0 ? card.labels[0].name : '',
                 contractAmount: financials.contractAmount,
+                office10Pct: financials.office10Pct,
                 netProfit: financials.netProfit,
                 daysInStage: calculateDaysInColumn(card)
-              };
-            })}
+                };
+              })
+            }
             sortable={true}
+            initialSortColumn="daysInStage"
+            initialSortDirection="desc"
             totalsRow={{
-              name: `Total (${activePipelineCards.length} leads)`,
+              name: `Total (${activePipelineCards.filter(card => card.name !== 'Address').length} leads)`,
               stage: '',
               labels: '',
+              labelsSort: '',
               contractAmount: pipelineValue,
+              office10Pct: activePipelineCards
+                .filter(card => card.name !== 'Address')
+                .reduce((sum, card) => {
+                  const financials = parseCustomFields(card, customFields);
+                  return sum + financials.office10Pct;
+                }, 0),
               netProfit: potentialProfit,
               daysInStage: ''
             }}

@@ -27,7 +27,7 @@ export function parseCustomFields(
     netProfit: 0,
   };
 
-  if (!card.customFieldItems || !fieldDefinitions.length) {
+  if (!Array.isArray(card.customFieldItems) || !fieldDefinitions.length) {
     return financials;
   }
 
@@ -342,7 +342,7 @@ export function findCardsByLabel(
   labelName: string
 ): TrelloCard[] {
   return cards.filter(card => 
-    card.labels.some(label => label.name === labelName)
+    Array.isArray(card.labels) && card.labels.some(label => label.name === labelName)
   );
 }
 

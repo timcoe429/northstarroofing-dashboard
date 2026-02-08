@@ -27,6 +27,8 @@ interface DataTableProps {
   totalsRow?: TableRow;
   emptyMessage?: string;
   maxHeight?: string;
+  initialSortColumn?: string;
+  initialSortDirection?: 'asc' | 'desc';
 }
 
 type SortDirection = 'asc' | 'desc';
@@ -41,10 +43,12 @@ export const DataTable: React.FC<DataTableProps> = ({
   onViewAll,
   totalsRow,
   emptyMessage = 'No data available',
-  maxHeight
+  maxHeight,
+  initialSortColumn,
+  initialSortDirection = 'asc'
 }) => {
-  const [sortColumn, setSortColumn] = useState<string | null>(null);
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [sortColumn, setSortColumn] = useState<string | null>(initialSortColumn || null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>(initialSortDirection);
 
   // Handle column header click for sorting
   const handleSort = (columnKey: string) => {
