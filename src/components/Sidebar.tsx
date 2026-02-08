@@ -16,6 +16,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: Icons.Dashboard, href: '/' },
+  { id: 'pipeline', label: 'Pipeline', icon: Icons.Pipeline, href: '/pipeline' },
   { id: 'projects', label: 'Projects', icon: Icons.Projects, href: '/projects' },
   { id: 'sales-board', label: 'Sales Board', icon: Icons.Boards, href: 'https://trello.com/b/WSiRtEMs/sales-estimates', external: true },
   { id: 'build-board', label: 'Build Board', icon: Icons.Boards, href: 'https://trello.com/b/71rgUcQZ/build-jobs', external: true },
