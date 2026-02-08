@@ -17,8 +17,8 @@ interface NavItem {
 const navItems: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: Icons.Dashboard, href: '/' },
   { id: 'projects', label: 'Projects', icon: Icons.Projects, href: '/projects' },
-  { id: 'sales-board', label: 'Sales Board', icon: Icons.Boards, href: 'https://trello.com', external: true },
-  { id: 'build-board', label: 'Build Board', icon: Icons.Boards, href: 'https://trello.com', external: true },
+  { id: 'sales-board', label: 'Sales Board', icon: Icons.Boards, href: 'https://trello.com/b/WSiRtEMs/sales-estimates', external: true },
+  { id: 'build-board', label: 'Build Board', icon: Icons.Boards, href: 'https://trello.com/b/71rgUcQZ/build-jobs', external: true },
   { id: 'estimates', label: 'Estimates', icon: Icons.Estimates, href: '/estimates' },
   { id: 'customers', label: 'Customers', icon: Icons.Customers, href: '/customers' },
   { id: 'finances', label: 'Finances', icon: Icons.Finances, href: '/finances' },
