@@ -1,13 +1,11 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Sidebar } from '@/components/Sidebar';
 import { Header } from '@/components/Header';
 import { mockData, formatCurrency } from '@/lib/utils';
 
 export default function EstimatesPage() {
-  const [timeRange, setTimeRange] = useState('6mo');
-
   const acceptanceRate = useMemo(() => {
     const actionable = mockData.estimates.filter(est => est.status !== 'Draft');
     const accepted = actionable.filter(est => est.status === 'Accepted').length;
@@ -18,7 +16,7 @@ export default function EstimatesPage() {
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f1f5f9', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
       <Sidebar />
       <main style={{ flex: 1, marginLeft: 220 }}>
-        <Header timeRange={timeRange} onTimeRangeChange={setTimeRange} />
+        <Header title="Estimates" subtitle="Manage project estimates and proposals" />
         <div style={{ padding: 24 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <div>
