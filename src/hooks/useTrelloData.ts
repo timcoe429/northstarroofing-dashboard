@@ -3,9 +3,10 @@
 // ===========================================
 // TRELLO DATA REACT HOOK
 // ===========================================
+// Trello data is fetched via server-side API routes that read
+// TRELLO_API_KEY, TRELLO_TOKEN, TRELLO_SALES_BOARD_ID, TRELLO_BUILD_BOARD_ID from process.env.
 
 import { useState, useEffect, useCallback } from 'react';
-import { TrelloService } from '@/lib/api/trello';
 import type { TrelloBoardData } from '@/types';
 
 interface TrelloCredentials {
@@ -22,131 +23,74 @@ interface UseTrelloBoardReturn {
   refresh: () => void;
 }
 
+const API_URL = {
+  sales: '/api/trello/sales-board',
+  build: '/api/trello/build-board',
+} as const;
+
+function userFacingError(
+  boardType: 'sales' | 'build',
+  status: number,
+  bodyError?: string
+): string {
+  const boardName = boardType === 'sales' ? 'Sales/Estimates' : 'Build/Jobs';
+  if (status === 401) return 'Authentication failed. Please check your API Key and Token in Settings.';
+  if (status === 403) return 'Access denied. Please ensure your Trello token has access to this board.';
+  if (status === 404) return `Board not found. Please verify the ${boardName} Board ID in Settings.`;
+  if (status === 503) return bodyError || 'Trello is not configured. Set TRELLO_* environment variables on the server.';
+  if (bodyError) return bodyError;
+  return `Failed to fetch ${boardType} board data. Please try again.`;
+}
+
 /**
- * Custom hook for fetching and caching Trello board data
- * Supports both 'sales' and 'build' board types with independent caching
+ * Custom hook for fetching Trello board data via server API routes.
+ * Supports both 'sales' and 'build' board types with independent caching.
  */
 export function useTrelloBoard(boardType: 'sales' | 'build'): UseTrelloBoardReturn {
   const [data, setData] = useState<TrelloBoardData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Get credentials from environment variables first, then localStorage
-  const getCredentials = useCallback((): TrelloCredentials | null => {
-    // First, check for environment variables
-    const envApiKey = process.env.NEXT_PUBLIC_TRELLO_API_KEY;
-    const envToken = process.env.NEXT_PUBLIC_TRELLO_TOKEN;
-    const envSalesBoardId = process.env.NEXT_PUBLIC_TRELLO_SALES_BOARD_ID;
-    const envBuildBoardId = process.env.NEXT_PUBLIC_TRELLO_BUILD_BOARD_ID;
-
-    if (envApiKey && envToken && envApiKey !== 'your_api_key_here' && envToken !== 'your_token_here') {
-      return {
-        apiKey: envApiKey,
-        token: envToken,
-        salesBoardId: envSalesBoardId || '',
-        buildBoardId: envBuildBoardId || '',
-      };
-    }
-
-    // Fallback to localStorage
-    try {
-      const stored = localStorage.getItem('trello-credentials');
-      if (!stored) return null;
-      
-      const parsed = JSON.parse(stored);
-      if (!parsed.apiKey || !parsed.token) return null;
-      
-      return parsed;
-    } catch {
-      return null;
-    }
-  }, []);
-
-  // Create Trello service instance with current credentials
-  const createTrelloService = useCallback((): TrelloService | null => {
-    const credentials = getCredentials();
-    if (!credentials) return null;
-
-    return new TrelloService({
-      apiKey: credentials.apiKey,
-      token: credentials.token,
-      salesBoardId: credentials.salesBoardId,
-      buildBoardId: credentials.buildBoardId,
-    });
-  }, [getCredentials]);
-
-  // Fetch board data
   const fetchBoardData = useCallback(async () => {
-    const service = createTrelloService();
-    if (!service) {
-      setError('Trello credentials not configured. Please set up your API credentials in Settings.');
-      setLoading(false);
-      return;
-    }
-
-    const credentials = getCredentials();
-    if (!credentials) {
-      setError('Unable to read Trello credentials.');
-      setLoading(false);
-      return;
-    }
-
-    const boardId = boardType === 'sales' ? credentials.salesBoardId : credentials.buildBoardId;
-    if (!boardId) {
-      setError(`${boardType === 'sales' ? 'Sales/Estimates' : 'Build/Jobs'} Board ID not configured. Please set it up in Settings.`);
-      setLoading(false);
-      return;
-    }
-
+    const url = API_URL[boardType];
     setLoading(true);
     setError(null);
 
     try {
-      const boardData = await service.getFullBoardData(boardId);
-      setData(boardData);
+      const res = await fetch(url);
+      const body = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        const message = userFacingError(
+          boardType,
+          res.status,
+          typeof body?.error === 'string' ? body.error : undefined
+        );
+        setError(message);
+        setData(null);
+        return;
+      }
+
+      setData(body as TrelloBoardData);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
-      
-      // Provide more specific error messages
-      if (errorMessage.includes('401') || errorMessage.includes('unauthorized')) {
-        setError('Authentication failed. Please check your API Key and Token in Settings.');
-      } else if (errorMessage.includes('404') || errorMessage.includes('not found')) {
-        setError(`Board not found. Please verify the ${boardType === 'sales' ? 'Sales/Estimates' : 'Build/Jobs'} Board ID in Settings.`);
-      } else if (errorMessage.includes('403') || errorMessage.includes('forbidden')) {
-        setError('Access denied. Please ensure your Trello token has access to this board.');
-      } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
+      const msg = err instanceof Error ? err.message : 'Unknown error occurred';
+      if (msg.includes('fetch') || msg.includes('network')) {
         setError('Network error. Please check your internet connection and try again.');
       } else {
-        setError(`Failed to fetch ${boardType} board data: ${errorMessage}`);
+        setError(`Failed to fetch ${boardType} board data: ${msg}`);
       }
-      
       setData(null);
     } finally {
       setLoading(false);
     }
-  }, [boardType, createTrelloService, getCredentials]);
+  }, [boardType]);
 
-  // Refresh function for manual re-fetch
   const refresh = useCallback(() => {
     fetchBoardData();
   }, [fetchBoardData]);
 
-  // Initial fetch on mount and when boardType changes
   useEffect(() => {
     fetchBoardData();
-  }, [fetchBoardData]);
-
-  // Listen for credential changes in localStorage
-  useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'trello-credentials') {
-        // Credentials changed, refetch data
-        fetchBoardData();
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
   }, [fetchBoardData]);
 
   return {
@@ -159,7 +103,6 @@ export function useTrelloBoard(boardType: 'sales' | 'build'): UseTrelloBoardRetu
 
 /**
  * Hook for fetching both sales and build board data
- * Returns combined state and individual refresh functions
  */
 export function useTrelloBoards() {
   const salesBoard = useTrelloBoard('sales');
@@ -180,137 +123,71 @@ export function useTrelloBoards() {
 }
 
 /**
- * Utility hook for managing Trello credentials in localStorage
- * This will eventually be replaced with Supabase storage
+ * Hook for Trello configuration status (server-side env only).
+ * Credentials are not stored or editable in the client.
  */
 export function useTrelloCredentials() {
-  const [credentials, setCredentials] = useState<TrelloCredentials | null>(null);
+  const [configured, setConfigured] = useState<boolean | null>(null);
 
-  // Load credentials from environment variables first, then localStorage
   useEffect(() => {
-    // Check for environment variables first
-    const envApiKey = process.env.NEXT_PUBLIC_TRELLO_API_KEY;
-    const envToken = process.env.NEXT_PUBLIC_TRELLO_TOKEN;
-    const envSalesBoardId = process.env.NEXT_PUBLIC_TRELLO_SALES_BOARD_ID;
-    const envBuildBoardId = process.env.NEXT_PUBLIC_TRELLO_BUILD_BOARD_ID;
-
-    if (envApiKey && envToken && envApiKey !== 'your_api_key_here' && envToken !== 'your_token_here') {
-      setCredentials({
-        apiKey: envApiKey,
-        token: envToken,
-        salesBoardId: envSalesBoardId || '',
-        buildBoardId: envBuildBoardId || '',
+    let cancelled = false;
+    fetch('/api/trello/status')
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled && typeof data?.configured === 'boolean') setConfigured(data.configured);
+      })
+      .catch(() => {
+        if (!cancelled) setConfigured(false);
       });
-      return;
-    }
-
-    // Fallback to localStorage
-    try {
-      const stored = localStorage.getItem('trello-credentials');
-      if (stored) {
-        setCredentials(JSON.parse(stored));
-      }
-    } catch {
-      // Ignore parsing errors
-    }
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  // Save credentials to localStorage
-  const saveCredentials = useCallback((newCredentials: TrelloCredentials) => {
-    try {
-      localStorage.setItem('trello-credentials', JSON.stringify(newCredentials));
-      setCredentials(newCredentials);
-      
-      // Trigger storage event for other tabs/hooks
-      window.dispatchEvent(new StorageEvent('storage', {
-        key: 'trello-credentials',
-        newValue: JSON.stringify(newCredentials),
-      }));
-    } catch (err) {
-      console.error('Failed to save Trello credentials:', err);
-    }
+  const isConfigured = useCallback(() => configured === true, [configured]);
+
+  const saveCredentials = useCallback((_newCredentials: TrelloCredentials) => {
+    // No-op: Trello is configured via server environment variables only.
   }, []);
 
-  // Clear credentials
   const clearCredentials = useCallback(() => {
-    try {
-      localStorage.removeItem('trello-credentials');
-      setCredentials(null);
-      
-      // Trigger storage event for other tabs/hooks
-      window.dispatchEvent(new StorageEvent('storage', {
-        key: 'trello-credentials',
-        newValue: null,
-      }));
-    } catch (err) {
-      console.error('Failed to clear Trello credentials:', err);
-    }
+    // No-op: Remove TRELLO_* env vars on the server to disconnect.
   }, []);
-
-  // Check if credentials are configured
-  const isConfigured = useCallback(() => {
-    return !!(credentials?.apiKey && credentials?.token && 
-             (credentials?.salesBoardId || credentials?.buildBoardId));
-  }, [credentials]);
 
   return {
-    credentials,
+    credentials: configured ? {} : null,
     saveCredentials,
     clearCredentials,
     isConfigured,
+    configured,
   };
 }
 
 /**
- * Hook for testing Trello connections
+ * Hook for testing Trello connections via server (uses env vars).
  */
 export function useTrelloConnectionTest() {
   const [testing, setTesting] = useState(false);
   const [results, setResults] = useState<{ sales?: boolean; build?: boolean } | null>(null);
 
-  const testConnection = useCallback(async (
-    apiKey: string, 
-    token: string, 
-    salesBoardId?: string, 
-    buildBoardId?: string
-  ) => {
+  const testConnection = useCallback(async () => {
     setTesting(true);
     setResults(null);
 
-    const service = new TrelloService({
-      apiKey,
-      token,
-      salesBoardId,
-      buildBoardId,
-    });
-
     try {
-      const testResults: { sales?: boolean; build?: boolean } = {};
-
-      // Test sales board if provided
-      if (salesBoardId) {
-        try {
-          testResults.sales = await service.testBoardConnection(salesBoardId);
-        } catch {
-          testResults.sales = false;
-        }
-      }
-
-      // Test build board if provided
-      if (buildBoardId) {
-        try {
-          testResults.build = await service.testBoardConnection(buildBoardId);
-        } catch {
-          testResults.build = false;
-        }
-      }
-
+      const res = await fetch('/api/trello/test');
+      const data = await res.json();
+      const testResults = {
+        sales: data?.sales === true,
+        build: data?.build === true,
+      };
       setResults(testResults);
       return testResults;
     } catch (err) {
       console.error('Connection test failed:', err);
-      setResults({ sales: false, build: false });
-      return { sales: false, build: false };
+      const fallback = { sales: false, build: false };
+      setResults(fallback);
+      return fallback;
     } finally {
       setTesting(false);
     }

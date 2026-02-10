@@ -65,33 +65,21 @@ export default function SettingsPage() {
   const [formData, setFormData] = useState<Record<string, Record<string, string>>>({});
   const [testingId, setTestingId] = useState<string | null>(null);
   
-  // Use Trello hooks
-  const { credentials, saveCredentials, clearCredentials, isConfigured } = useTrelloCredentials();
+  // Use Trello hooks (server-side env only; no localStorage)
+  const { configured: trelloConfigured } = useTrelloCredentials();
   const { testing: trelloTesting, results: trelloTestResults, testConnection } = useTrelloConnectionTest();
 
-  // Initialize form data with stored credentials
+  // Sync Trello connection status from server (GET /api/trello/status)
   useEffect(() => {
-    if (credentials) {
-      setFormData(prev => ({
-        ...prev,
-        trello: {
-          apiKey: credentials.apiKey || '',
-          token: credentials.token || '',
-          salesBoardId: credentials.salesBoardId || '',
-          buildBoardId: credentials.buildBoardId || '',
-        },
-      }));
-      
-      // Update connection status
-      setConnections(prev =>
-        prev.map(conn =>
-          conn.id === 'trello'
-            ? { ...conn, connected: isConfigured(), lastSync: new Date().toISOString() }
-            : conn
-        )
-      );
-    }
-  }, [credentials, isConfigured]);
+    if (trelloConfigured === null) return;
+    setConnections(prev =>
+      prev.map(conn =>
+        conn.id === 'trello'
+          ? { ...conn, connected: trelloConfigured, lastSync: trelloConfigured ? new Date().toISOString() : undefined }
+          : conn
+      )
+    );
+  }, [trelloConfigured]);
 
   const handleInputChange = (connectionId: string, fieldKey: string, value: string) => {
     setFormData(prev => ({
@@ -107,20 +95,7 @@ export default function SettingsPage() {
     setTestingId(connectionId);
 
     if (connectionId === 'trello') {
-      // Test both Trello boards using the hook
-      const trelloData = formData[connectionId];
-      if (!trelloData?.apiKey || !trelloData?.token) {
-        alert('Please enter API Key and Token first');
-        setTestingId(null);
-        return;
-      }
-
-      await testConnection(
-        trelloData.apiKey,
-        trelloData.token,
-        trelloData.salesBoardId,
-        trelloData.buildBoardId
-      );
+      await testConnection();
     } else {
       // Simulate API test for other connections
       await new Promise(resolve => setTimeout(resolve, 1500));
@@ -132,16 +107,8 @@ export default function SettingsPage() {
 
   const handleSaveConnection = (connectionId: string) => {
     if (connectionId === 'trello') {
-      // Save Trello credentials using the hook
-      const trelloData = formData[connectionId];
-      if (trelloData?.apiKey && trelloData?.token) {
-        saveCredentials({
-          apiKey: trelloData.apiKey,
-          token: trelloData.token,
-          salesBoardId: trelloData.salesBoardId || '',
-          buildBoardId: trelloData.buildBoardId || '',
-        });
-      }
+      alert('Trello is configured via server environment variables (e.g. .env.local or Vercel). Add TRELLO_API_KEY, TRELLO_TOKEN, TRELLO_SALES_BOARD_ID, and TRELLO_BUILD_BOARD_ID there.');
+      return;
     }
 
     setConnections(prev =>
@@ -156,8 +123,8 @@ export default function SettingsPage() {
 
   const handleDisconnect = (connectionId: string) => {
     if (connectionId === 'trello') {
-      // Clear Trello credentials using the hook
-      clearCredentials();
+      alert('To disconnect Trello, remove TRELLO_API_KEY, TRELLO_TOKEN, and board IDs from your server environment (e.g. Vercel Environment Variables).');
+      return;
     }
 
     setConnections(prev =>
@@ -307,15 +274,21 @@ export default function SettingsPage() {
                       <div>
                         <div style={{ 
                           padding: 16, 
-                          background: '#d1fae5', 
+                          background: connection.id === 'trello' ? '#d1fae5' : '#d1fae5', 
                           borderRadius: 8, 
                           marginBottom: 16 
                         }}>
                           <p style={{ margin: 0, fontSize: 13, color: '#065f46' }}>
-                            <strong>Connected</strong> - Last synced: {' '}
-                            {connection.lastSync 
-                              ? new Date(connection.lastSync).toLocaleString() 
-                              : 'Never'}
+                            {connection.id === 'trello' ? (
+                              <> <strong>Connected</strong> - Configured via server environment variables (Vercel or .env.local). </>
+                            ) : (
+                              <span>
+                                <strong>Connected</strong> - Last synced: {' '}
+                                {connection.lastSync
+                                  ? new Date(connection.lastSync).toLocaleString()
+                                  : 'Never'}
+                              </span>
+                            )}
                           </p>
                         </div>
                         <div style={{ display: 'flex', gap: 10 }}>
@@ -353,6 +326,73 @@ export default function SettingsPage() {
                           </button>
                         </div>
                       </div>
+                    ) : connection.id === 'trello' ? (
+                      <div>
+                        <div style={{ 
+                          padding: 16, 
+                          background: 'white', 
+                          borderRadius: 8, 
+                          marginBottom: 16,
+                          border: '1px solid #e2e8f0'
+                        }}>
+                          <p style={{ margin: 0, fontSize: 13, color: '#334155', lineHeight: 1.5 }}>
+                            Trello is configured via server environment variables. Set <strong>TRELLO_API_KEY</strong>, <strong>TRELLO_TOKEN</strong>, <strong>TRELLO_SALES_BOARD_ID</strong>, and <strong>TRELLO_BUILD_BOARD_ID</strong> in your server environment (e.g. .env.local or Vercel).
+                          </p>
+                        </div>
+                        {trelloTestResults && (
+                          <div style={{ marginBottom: 16 }}>
+                            <div style={{ marginBottom: 8 }}>
+                              <span style={{ fontSize: 12, fontWeight: 500, color: '#334155' }}>Connection Test Results:</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, fontSize: 12 }}>
+                              <span style={{ color: '#64748b' }}>Sales/Estimates Board:</span>
+                              <span style={{ color: trelloTestResults.sales ? '#059669' : '#dc2626', fontWeight: 500 }}>
+                                {trelloTestResults.sales ? '✓ Connected' : '✗ Failed'}
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, fontSize: 12 }}>
+                              <span style={{ color: '#64748b' }}>Build/Jobs Board:</span>
+                              <span style={{ color: trelloTestResults.build ? '#059669' : '#dc2626', fontWeight: 500 }}>
+                                {trelloTestResults.build ? '✓ Connected' : '✗ Failed'}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+                          <button
+                            onClick={() => handleTestConnection(connection.id)}
+                            disabled={testingId === connection.id || trelloTesting}
+                            style={{ 
+                              padding: '10px 16px', 
+                              background: '#00293f', 
+                              color: 'white', 
+                              border: 'none', 
+                              borderRadius: 6,
+                              fontSize: 13,
+                              fontWeight: 500,
+                              cursor: (testingId === connection.id || trelloTesting) ? 'wait' : 'pointer',
+                              opacity: (testingId === connection.id || trelloTesting) ? 0.7 : 1
+                            }}
+                          >
+                            {(testingId === connection.id || trelloTesting) ? 'Testing...' : 'Test Connection'}
+                          </button>
+                          <button
+                            onClick={() => handleSaveConnection(connection.id)}
+                            style={{ 
+                              padding: '10px 16px', 
+                              background: 'white', 
+                              color: '#00293f', 
+                              border: '1px solid #00293f', 
+                              borderRadius: 6,
+                              fontSize: 13,
+                              fontWeight: 500,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            How to configure
+                          </button>
+                        </div>
+                      </div>
                     ) : (
                       <div>
                         {connection.fields.map(field => (
@@ -382,53 +422,10 @@ export default function SettingsPage() {
                             />
                           </div>
                         ))}
-                        {/* Test Results for Trello */}
-                        {connection.id === 'trello' && trelloTestResults && (
-                          <div style={{ marginBottom: 16 }}>
-                            <div style={{ marginBottom: 8 }}>
-                              <span style={{ fontSize: 12, fontWeight: 500, color: '#334155' }}>Connection Test Results:</span>
-                            </div>
-                            {formData[connection.id]?.salesBoardId && trelloTestResults.sales !== undefined && (
-                              <div style={{ 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                gap: 8, 
-                                marginBottom: 4,
-                                fontSize: 12
-                              }}>
-                                <span style={{ color: '#64748b' }}>Sales/Estimates Board:</span>
-                                <span style={{ 
-                                  color: trelloTestResults.sales ? '#059669' : '#dc2626',
-                                  fontWeight: 500
-                                }}>
-                                  {trelloTestResults.sales ? '✓ Connected' : '✗ Failed'}
-                                </span>
-                              </div>
-                            )}
-                            {formData[connection.id]?.buildBoardId && trelloTestResults.build !== undefined && (
-                              <div style={{ 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                gap: 8, 
-                                marginBottom: 4,
-                                fontSize: 12
-                              }}>
-                                <span style={{ color: '#64748b' }}>Build/Jobs Board:</span>
-                                <span style={{ 
-                                  color: trelloTestResults.build ? '#059669' : '#dc2626',
-                                  fontWeight: 500
-                                }}>
-                                  {trelloTestResults.build ? '✓ Connected' : '✗ Failed'}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        )}
-
                         <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
                           <button
                             onClick={() => handleTestConnection(connection.id)}
-                            disabled={testingId === connection.id || (connection.id === 'trello' && trelloTesting)}
+                            disabled={testingId === connection.id}
                             style={{ 
                               padding: '10px 16px', 
                               background: 'white', 
@@ -437,11 +434,11 @@ export default function SettingsPage() {
                               borderRadius: 6,
                               fontSize: 13,
                               fontWeight: 500,
-                              cursor: (testingId === connection.id || (connection.id === 'trello' && trelloTesting)) ? 'wait' : 'pointer',
-                              opacity: (testingId === connection.id || (connection.id === 'trello' && trelloTesting)) ? 0.7 : 1
+                              cursor: testingId === connection.id ? 'wait' : 'pointer',
+                              opacity: testingId === connection.id ? 0.7 : 1
                             }}
                           >
-                            {(testingId === connection.id || (connection.id === 'trello' && trelloTesting)) ? 'Testing...' : 'Test Connection'}
+                            {testingId === connection.id ? 'Testing...' : 'Test Connection'}
                           </button>
                           <button
                             onClick={() => handleSaveConnection(connection.id)}

@@ -2,9 +2,16 @@
 
 ## Trello (Pipeline / Project Management)
 
+Trello is configured via **server-only** environment variables. The client never sees credentials. Board data is fetched by the server via these API routes:
+
+- `GET /api/trello/sales-board` — Sales/Estimates board (lists, cards, labels, custom fields)
+- `GET /api/trello/build-board` — Build/Jobs board
+- `GET /api/trello/test` — Test both board connections (used by Settings)
+- `GET /api/trello/status` — Whether Trello is configured (`{ configured: boolean }`)
+
 **Auth Flow**
 - API Key + Token (query params): `key` and `token`.
-- Config values are loaded from env or passed to the service.
+- Config is read from server env: `TRELLO_API_KEY`, `TRELLO_TOKEN`, `TRELLO_SALES_BOARD_ID`, `TRELLO_BUILD_BOARD_ID` (or `SALES_BOARD_ID` / `BUILD_BOARD_ID`).
 
 **Endpoints Used**
 - `GET /1/boards/{boardId}` (connection test)

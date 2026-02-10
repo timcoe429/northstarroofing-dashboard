@@ -13,10 +13,11 @@ Required for Supabase:
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 
 Integrations (optional until APIs are connected):
-- Trello:
+- Trello (server-only; board data is fetched via `/api/trello/sales-board` and `/api/trello/build-board`):
   - `TRELLO_API_KEY`
   - `TRELLO_TOKEN`
-  - `TRELLO_BOARD_ID`
+  - `TRELLO_SALES_BOARD_ID`
+  - `TRELLO_BUILD_BOARD_ID`
 - QuickBooks Online:
   - `QUICKBOOKS_CLIENT_ID`
   - `QUICKBOOKS_CLIENT_SECRET`
