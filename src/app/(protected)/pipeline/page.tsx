@@ -7,6 +7,7 @@ import { StatCard } from '@/components/shared/StatCard';
 export const dynamic = 'force-dynamic';
 import { PipelineBar } from '@/components/shared/PipelineBar';
 import { AlertCard } from '@/components/shared/AlertCard';
+import { ActionItemsCard, type ActionItem } from '@/components/shared/ActionItemsCard';
 import { DataTable } from '@/components/shared/DataTable';
 import { Modal } from '@/components/shared/Modal';
 import { MaterialBreakdown } from '@/components/MaterialBreakdown';
@@ -21,6 +22,8 @@ import {
   getCardsByLists,
   formatCurrency, 
   calculateDaysInColumn,
+  calculateDaysOverdue,
+  hasUrgentLabel,
   sumContractAmounts,
   sumNetProfit,
   getCardListName
@@ -254,6 +257,7 @@ export default function PipelinePage() {
   const estimatingCards = getCardsByList(cards, lists, 'Estimating');
   const estimatesSentCards = getCardsByList(cards, lists, 'Estimate Sent');
   const followUpCards = getCardsByList(cards, lists, 'Follow-Up');
+  const estimateReviewCards = getCardsByList(cards, lists, 'Estimate Review');
   const wonCards = getCardsByList(cards, lists, 'Won → Create Job');
   const lostCards = getCardsByList(cards, lists, 'Lost / Dead');
   
@@ -286,106 +290,64 @@ export default function PipelinePage() {
   const wonMaterials = extractMaterialsFromCards(wonCards, customFields);
   const lostMaterials = extractMaterialsFromCards(lostCards, customFields);
 
-  // Generate action alerts
-  const generateAlerts = () => {
-    const alerts = [];
+  // Tim's Action Items: Need Quote + Estimating — show if overdue OR has Urgent label
+  const timsItems: ActionItem[] = [];
+  [...needQuoteCards, ...estimatingCards].forEach(card => {
+    const columnName = getCardListName(card, lists);
+    const trelloUrl = `https://trello.com/c/${card.shortLink}`;
+    const daysOverdue = calculateDaysOverdue(card);
+    const isUrgent = hasUrgentLabel(card);
 
-    // Need Quote alerts (3+ days = yellow, 5+ days = red)
-    const needQuote3Plus = needQuoteCards.filter(card => calculateDaysInColumn(card) >= 3);
-    const needQuote5Plus = needQuoteCards.filter(card => calculateDaysInColumn(card) >= 5);
-
-    if (needQuote5Plus.length > 0) {
-      alerts.push({
-        id: 'need-quote-critical',
-        title: 'Critical: Quotes Overdue',
-        message: `${needQuote5Plus.length} leads have been waiting 5+ days for quotes!`,
-        count: needQuote5Plus.length,
-        items: needQuote5Plus.map(card => ({
-          label: card.name,
-          value: `${calculateDaysInColumn(card)} days`,
-          color: COLORS.red
-        }))
+    if (daysOverdue > 0) {
+      timsItems.push({
+        cardName: card.name,
+        columnName,
+        reason: `${daysOverdue} days over`,
+        color: 'red',
+        trelloUrl
       });
-    } else if (needQuote3Plus.length > 0) {
-      alerts.push({
-        id: 'need-quote-warning',
-        title: 'Quotes Needed',
-        message: `${needQuote3Plus.length} leads waiting for quotes`,
-        count: needQuote3Plus.length,
-        items: needQuote3Plus.map(card => ({
-          label: card.name,
-          value: `${calculateDaysInColumn(card)} days`,
-          color: COLORS.warning
-        }))
+    } else if (isUrgent) {
+      timsItems.push({
+        cardName: card.name,
+        columnName,
+        reason: 'Urgent',
+        color: 'orange',
+        trelloUrl
       });
     }
+  });
+  timsItems.sort((a, b) => (a.color === 'red' ? -1 : b.color === 'red' ? 1 : 0));
 
-    // Estimating alerts (5+ days = yellow)
-    const estimating5Plus = estimatingCards.filter(card => calculateDaysInColumn(card) >= 5);
-    if (estimating5Plus.length > 0) {
-      alerts.push({
-        id: 'estimating-warning',
-        title: 'Estimates Taking Too Long',
-        message: `${estimating5Plus.length} estimates have been in progress for 5+ days`,
-        count: estimating5Plus.length,
-        items: estimating5Plus.map(card => ({
-          label: card.name,
-          value: `${calculateDaysInColumn(card)} days`,
-          color: COLORS.warning
-        }))
+  // Omiah's Action Items: Follow-Up + Estimate Review — use dateLastActivity staleness
+  const omiahsItems: ActionItem[] = [];
+  followUpCards.forEach(card => {
+    const daysStale = calculateDaysInColumn(card);
+    if (daysStale >= 3) {
+      omiahsItems.push({
+        cardName: card.name,
+        columnName: 'Follow-Up',
+        reason: `${daysStale} days stale`,
+        color: daysStale >= 5 ? 'red' : 'yellow',
+        trelloUrl: `https://trello.com/c/${card.shortLink}`
       });
     }
-
-    // Estimate Sent alerts (5+ days = yellow, 7+ days = red)
-    const estimateSent5Plus = estimatesSentCards.filter(card => calculateDaysInColumn(card) >= 5);
-    const estimateSent7Plus = estimatesSentCards.filter(card => calculateDaysInColumn(card) >= 7);
-
-    if (estimateSent7Plus.length > 0) {
-      alerts.push({
-        id: 'estimate-sent-critical',
-        title: 'Critical: Estimates Need Follow-Up',
-        message: `${estimateSent7Plus.length} estimates sent 7+ days ago with no response!`,
-        count: estimateSent7Plus.length,
-        items: estimateSent7Plus.map(card => ({
-          label: card.name,
-          value: `${calculateDaysInColumn(card)} days`,
-          color: COLORS.red
-        }))
-      });
-    } else if (estimateSent5Plus.length > 0) {
-      alerts.push({
-        id: 'estimate-sent-warning',
-        title: 'Estimates Awaiting Response',
-        message: `${estimateSent5Plus.length} estimates sent 5+ days ago`,
-        count: estimateSent5Plus.length,
-        items: estimateSent5Plus.map(card => ({
-          label: card.name,
-          value: `${calculateDaysInColumn(card)} days`,
-          color: COLORS.warning
-        }))
+  });
+  estimateReviewCards.forEach(card => {
+    const daysInColumn = calculateDaysInColumn(card);
+    if (daysInColumn >= 1) {
+      omiahsItems.push({
+        cardName: card.name,
+        columnName: 'Estimate Review',
+        reason: daysInColumn >= 3 ? `${daysInColumn} days` : `${daysInColumn} day${daysInColumn > 1 ? 's' : ''}`,
+        color: daysInColumn >= 3 ? 'red' : 'yellow',
+        trelloUrl: `https://trello.com/c/${card.shortLink}`
       });
     }
-
-    // Follow-Up alerts (7+ days = red)
-    const followUp7Plus = followUpCards.filter(card => calculateDaysInColumn(card) >= 7);
-    if (followUp7Plus.length > 0) {
-      alerts.push({
-        id: 'follow-up-critical',
-        title: 'Critical: Follow-Ups Overdue',
-        message: `${followUp7Plus.length} leads need immediate follow-up (7+ days)!`,
-        count: followUp7Plus.length,
-        items: followUp7Plus.map(card => ({
-          label: card.name,
-          value: `${calculateDaysInColumn(card)} days`,
-          color: COLORS.red
-        }))
-      });
-    }
-
-    return alerts;
-  };
-
-  const alerts = generateAlerts();
+  });
+  omiahsItems.sort((a, b) => {
+    const order = { red: 0, yellow: 1, orange: 2 };
+    return (order[a.color] ?? 2) - (order[b.color] ?? 2);
+  });
 
   return (
     <div style={{ 
@@ -509,24 +471,23 @@ export default function PipelinePage() {
             />
           </div>
 
-          {/* Middle Row */}
+          {/* Middle Row - Action Items + Material Breakdown */}
           <div style={{ 
             display: 'grid', 
-            gridTemplateColumns: '2fr 1fr', 
+            gridTemplateColumns: '1fr 1fr 1fr', 
             gap: SPACING.gridGap, 
             marginBottom: SPACING.sectionMargin 
           }}>
-            <AlertCard
-              title="Needs Attention"
-              alerts={alerts}
-              type={alerts.length > 0 ? 'warning' : 'healthy'}
-              expandable={true}
-              emptyState={{
-                title: "Pipeline is healthy",
-                message: "Nothing overdue 👍"
-              }}
+            <ActionItemsCard
+              title="TIM'S ACTION ITEMS"
+              items={timsItems}
+              emptyMessage="All caught up!"
             />
-            
+            <ActionItemsCard
+              title="OMIAH'S ACTION ITEMS"
+              items={omiahsItems}
+              emptyMessage="All caught up!"
+            />
             <MaterialBreakdown cards={activePipelineCards} customFields={customFields} />
           </div>
 

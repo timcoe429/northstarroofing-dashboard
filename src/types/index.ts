@@ -79,6 +79,7 @@ export interface TrelloCard {
   labels: TrelloLabel[];
   due: string | null;
   dateLastActivity: string;
+  shortLink: string;
   customFieldItems?: TrelloCustomFieldValue[];
   attachments?: TrelloAttachment[];
 }

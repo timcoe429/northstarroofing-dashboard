@@ -357,3 +357,22 @@ export function findOverdueCards(cards: TrelloCard[]): TrelloCard[] {
     return dueDate < now;
   });
 }
+
+/**
+ * Calculate how many days past due a card is. Returns 0 if no due date or not overdue.
+ */
+export function calculateDaysOverdue(card: TrelloCard): number {
+  if (!card.due) return 0;
+  const dueDate = new Date(card.due);
+  const now = new Date();
+  if (dueDate >= now) return 0;
+  const diffMs = now.getTime() - dueDate.getTime();
+  return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+}
+
+/**
+ * Check if a card has the "Urgent" label
+ */
+export function hasUrgentLabel(card: TrelloCard): boolean {
+  return Array.isArray(card.labels) && card.labels.some(l => l.name === 'Urgent');
+}

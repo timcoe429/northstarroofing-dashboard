@@ -20,6 +20,7 @@ export const COLORS = {
   successLight: '#d1fae5',
   warning: '#f59e0b',
   warningLight: '#fef3c7',
+  orange: '#F97316',
   error: '#dc2626',
   errorLight: '#fee2e2',
   info: '#3b82f6',
