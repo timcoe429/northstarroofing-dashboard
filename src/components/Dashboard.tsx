@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { useAuthContext, getDisplayName } from '@/contexts/AuthContext';
 import { StatCard } from './shared/StatCard';
@@ -68,10 +67,8 @@ export default function NorthstarDashboard() {
   // Loading state
   if (loading) {
     return (
-      <div style={{ display: 'flex', minHeight: '100vh', background: COLORS.gray100, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
-        <Sidebar />
-        <main style={{ flex: 1, marginLeft: 220 }}>
-          <Header title="Dashboard" subtitle={`Welcome back, ${user?.email ? getDisplayName(user.email) : 'User'}`} showTimeRange={false} />
+      <div style={{ minHeight: '100vh', background: COLORS.gray100, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+        <Header title="Dashboard" subtitle={`Welcome back, ${user?.email ? getDisplayName(user.email) : 'User'}`} showTimeRange={false} />
           <div style={{ 
             padding: SPACING[6], 
             display: 'flex', 
@@ -94,7 +91,6 @@ export default function NorthstarDashboard() {
               </p>
             </div>
           </div>
-        </main>
       </div>
     );
   }
@@ -102,10 +98,8 @@ export default function NorthstarDashboard() {
   // Error state
   if (error) {
     return (
-      <div style={{ display: 'flex', minHeight: '100vh', background: COLORS.gray100, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
-        <Sidebar />
-        <main style={{ flex: 1, marginLeft: 220 }}>
-          <Header title="Dashboard" subtitle={`Welcome back, ${user?.email ? getDisplayName(user.email) : 'User'}`} showTimeRange={false} />
+      <div style={{ minHeight: '100vh', background: COLORS.gray100, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+        <Header title="Dashboard" subtitle={`Welcome back, ${user?.email ? getDisplayName(user.email) : 'User'}`} showTimeRange={false} />
           <div style={{ 
             padding: SPACING[6], 
             display: 'flex', 
@@ -125,7 +119,6 @@ export default function NorthstarDashboard() {
               <p style={{ color: COLORS.gray600, marginBottom: 0 }}>{error}</p>
             </div>
           </div>
-        </main>
       </div>
     );
   }
@@ -205,7 +198,7 @@ export default function NorthstarDashboard() {
   });
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: COLORS.gray100, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: COLORS.gray100, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
       {/* Modals */}
       <Modal isOpen={activeModal === 'revenue'} onClose={() => setActiveModal(null)} title="Revenue Breakdown">
         <RevenueDetailContent data={[]} />
@@ -236,12 +229,7 @@ export default function NorthstarDashboard() {
         <AvgJobSizeContent data={{ byType: [], trend: [] }} />
       </Modal>
 
-      {/* Sidebar */}
-      <Sidebar />
-
-      {/* Main Content */}
-      <main style={{ flex: 1, marginLeft: 220 }}>
-        <Header title="Dashboard" subtitle={`Welcome back, ${user?.email ? getDisplayName(user.email) : 'User'}`} showTimeRange={false} />
+      <Header title="Dashboard" subtitle={`Welcome back, ${user?.email ? getDisplayName(user.email) : 'User'}`} showTimeRange={false} />
 
         {/* Dashboard Content */}
         <div style={{ padding: SPACING[6] }}>
@@ -343,7 +331,6 @@ export default function NorthstarDashboard() {
             emptyMessage={activeCards.length === 0 ? "No active projects found. Projects will appear here once added to your Build/Jobs Trello board." : undefined}
           />
         </div>
-      </main>
     </div>
   );
 }
