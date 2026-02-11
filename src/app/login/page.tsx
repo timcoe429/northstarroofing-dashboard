@@ -1,10 +1,29 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { LoginForm } from '@/components/LoginForm';
+import { createClient } from '@/lib/supabase/client';
 
 export default function LoginPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    // Check if user is already logged in
+    const checkSession = async () => {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session) {
+        // User is already logged in, redirect to dashboard
+        router.push('/');
+      }
+    };
+
+    checkSession();
+  }, [router]);
+
   return (
     <div style={{ minHeight: '100vh', background: '#f8fafc', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
       <div style={{ width: '100%', maxWidth: 440 }}>

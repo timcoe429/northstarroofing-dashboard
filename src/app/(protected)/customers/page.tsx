@@ -1,24 +1,21 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Sidebar } from '@/components/Sidebar';
 import { Header } from '@/components/Header';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/styles/constants';
+
+export const dynamic = 'force-dynamic';
 
 export default function CustomersPage() {
   const [timeRange, setTimeRange] = useState('6mo');
 
   return (
     <div style={{ 
-      display: 'flex', 
       minHeight: '100vh', 
       background: COLORS.gray100, 
       fontFamily: TYPOGRAPHY.fontFamily 
     }}>
-      <Sidebar />
-      
-      <main style={{ flex: 1, marginLeft: 220 }}>
-        <Header title="Customers" subtitle="Customer management coming soon" showTimeRange={false} />
+      <Header title="Customers" subtitle="Customer management coming soon" showTimeRange={false} />
         
         <div style={{ padding: SPACING[6] }}>
           {/* Page Title */}
@@ -69,7 +66,6 @@ export default function CustomersPage() {
             </p>
           </div>
         </div>
-      </main>
     </div>
   );
 }

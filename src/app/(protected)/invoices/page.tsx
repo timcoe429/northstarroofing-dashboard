@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Sidebar } from '@/components/Sidebar';
 import { Header } from '@/components/Header';
 import { COLORS, SPACING } from '@/styles/constants';
+
+export const dynamic = 'force-dynamic';
 import {
   InvoiceData,
   CompanyInfo,
@@ -214,11 +215,8 @@ export default function InvoicesPage() {
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: COLORS.gray100, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
-      <Sidebar />
-      
-      <main style={{ flex: 1, marginLeft: 220 }}>
-        <Header title="Invoices" subtitle="Create and manage invoices" showTimeRange={false} />
+    <div style={{ minHeight: '100vh', background: COLORS.gray100, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+      <Header title="Invoices" subtitle="Create and manage invoices" showTimeRange={false} />
         
         <div style={{ padding: SPACING[6], maxWidth: 900, margin: '0 auto' }}>
           {/* Search/Load Bar */}
@@ -1358,7 +1356,6 @@ export default function InvoicesPage() {
             </button>
           </div>
         </div>
-      </main>
       
       {/* Click outside handler for search dropdown */}
       <div 

@@ -28,3 +28,27 @@
 ## Behavior / UX
 - **Small composable components**: Prefer small, reusable components over monoliths. See `.cursorrules` for component patterns.
 - **Client components marked with 'use client'**: Required for Next.js App Router client-side interactivity.
+
+## Authentication Architecture: Route Groups + Protected Layout
+
+**Decision:** Use Next.js route groups with a centralized protected layout instead of page-by-page auth checks
+
+**Why:**
+- Single source of truth for authentication logic
+- Impossible to forget auth on new pages (automatic protection)
+- Clear separation between public and protected routes
+- Maintainable and scalable architecture
+- Prevents static generation issues with one `dynamic = 'force-dynamic'` export
+
+**Pattern:**
+```
+/app
+  /(protected)/layout.tsx    ← Auth check happens here
+  /(protected)/page.tsx       ← Automatically protected
+  /(protected)/*/page.tsx     ← Automatically protected
+  /login/page.tsx             ← Public route (outside group)
+```
+
+**Rejected Alternative:** Adding `export const dynamic = 'force-dynamic'` to each individual page
+- Reason: Fragile (easy to forget), repetitive, no centralized control
+- This is a case where centralization was clearly better than repetition

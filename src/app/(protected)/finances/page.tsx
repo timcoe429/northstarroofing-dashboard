@@ -1,24 +1,21 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Sidebar } from '@/components/Sidebar';
 import { Header } from '@/components/Header';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/styles/constants';
 
-export default function ReportsPage() {
+export const dynamic = 'force-dynamic';
+
+export default function FinancesPage() {
   const [timeRange, setTimeRange] = useState('6mo');
 
   return (
     <div style={{ 
-      display: 'flex', 
       minHeight: '100vh', 
       background: COLORS.gray100, 
       fontFamily: TYPOGRAPHY.fontFamily 
     }}>
-      <Sidebar />
-      
-      <main style={{ flex: 1, marginLeft: 220 }}>
-        <Header title="Reports" subtitle="Reporting and analytics coming soon" showTimeRange={false} />
+      <Header title="Finances" subtitle="Financial management coming soon" showTimeRange={false} />
         
         <div style={{ padding: SPACING[6] }}>
           {/* Page Title */}
@@ -30,14 +27,14 @@ export default function ReportsPage() {
               margin: 0,
               marginBottom: SPACING[1]
             }}>
-              Reports
+              Finances
             </h1>
             <p style={{
               fontSize: TYPOGRAPHY.fontSize.lg,
               color: COLORS.gray500,
               margin: 0
             }}>
-              Analytics and business intelligence
+              Financial overview and reporting
             </p>
           </div>
 
@@ -50,7 +47,7 @@ export default function ReportsPage() {
             border: '1px solid #e8ecf0',
             boxShadow: '0 1px 3px rgba(0,0,0,0.06)'
           }}>
-            <div style={{ fontSize: 48, marginBottom: SPACING[4] }}>📊</div>
+            <div style={{ fontSize: 48, marginBottom: SPACING[4] }}>💰</div>
             <h2 style={{
               fontSize: TYPOGRAPHY.fontSize.xl,
               fontWeight: TYPOGRAPHY.fontWeight.semibold,
@@ -65,11 +62,10 @@ export default function ReportsPage() {
               color: COLORS.gray500,
               margin: 0
             }}>
-              Advanced reporting and analytics features are in development.
+              Financial tracking and reporting features are in development.
             </p>
           </div>
         </div>
-      </main>
     </div>
   );
 }

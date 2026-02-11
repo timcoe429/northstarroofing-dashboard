@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Sidebar } from '@/components/Sidebar';
 import { Header } from '@/components/Header';
 import { StatCard } from '@/components/shared/StatCard';
+
+export const dynamic = 'force-dynamic';
 import { PipelineBar } from '@/components/shared/PipelineBar';
 import { AlertCard } from '@/components/shared/AlertCard';
 import { DataTable } from '@/components/shared/DataTable';
@@ -159,10 +160,8 @@ export default function PipelinePage() {
   // Loading state
   if (loading) {
     return (
-      <div style={{ display: 'flex', minHeight: '100vh', background: COLORS.gray100 }}>
-        <Sidebar />
-        <main style={{ flex: 1, marginLeft: 220 }}>
-          <Header title="Pipeline" subtitle="Sales pipeline overview" showTimeRange={false} />
+      <div style={{ minHeight: '100vh', background: COLORS.gray100 }}>
+        <Header title="Pipeline" subtitle="Sales pipeline overview" showTimeRange={false} />
           <div style={{ 
             padding: SPACING[6], 
             display: 'flex', 
@@ -187,7 +186,6 @@ export default function PipelinePage() {
               </p>
             </div>
           </div>
-        </main>
       </div>
     );
   }
@@ -195,10 +193,8 @@ export default function PipelinePage() {
   // Error state
   if (error) {
     return (
-      <div style={{ display: 'flex', minHeight: '100vh', background: COLORS.gray100 }}>
-        <Sidebar />
-        <main style={{ flex: 1, marginLeft: 220 }}>
-          <Header title="Pipeline" subtitle="Sales pipeline overview" showTimeRange={false} />
+      <div style={{ minHeight: '100vh', background: COLORS.gray100 }}>
+        <Header title="Pipeline" subtitle="Sales pipeline overview" showTimeRange={false} />
           <div style={{ 
             padding: SPACING[6], 
             display: 'flex', 
@@ -216,7 +212,6 @@ export default function PipelinePage() {
               }}
             />
           </div>
-        </main>
       </div>
     );
   }
@@ -224,10 +219,8 @@ export default function PipelinePage() {
   // No data state
   if (!data) {
     return (
-      <div style={{ display: 'flex', minHeight: '100vh', background: COLORS.gray100 }}>
-        <Sidebar />
-        <main style={{ flex: 1, marginLeft: 220 }}>
-          <Header title="Pipeline" subtitle="Sales pipeline overview" showTimeRange={false} />
+      <div style={{ minHeight: '100vh', background: COLORS.gray100 }}>
+        <Header title="Pipeline" subtitle="Sales pipeline overview" showTimeRange={false} />
           <div style={{ 
             padding: SPACING[6], 
             display: 'flex', 
@@ -245,7 +238,6 @@ export default function PipelinePage() {
               }}
             />
           </div>
-        </main>
       </div>
     );
   }
@@ -397,7 +389,6 @@ export default function PipelinePage() {
 
   return (
     <div style={{ 
-      display: 'flex', 
       minHeight: '100vh', 
       background: COLORS.gray100, 
       fontFamily: TYPOGRAPHY.fontFamily 
@@ -439,10 +430,7 @@ export default function PipelinePage() {
         }} />
       </Modal>
 
-      <Sidebar />
-      
-      <main style={{ flex: 1, marginLeft: 220 }}>
-        <Header title="Pipeline" subtitle="Sales pipeline overview" showTimeRange={false} />
+      <Header title="Pipeline" subtitle="Sales pipeline overview" showTimeRange={false} />
         
         <div style={{ padding: SPACING[6] }}>
           {/* Page Title */}
@@ -695,7 +683,6 @@ export default function PipelinePage() {
             }}
           />
         </div>
-      </main>
     </div>
   );
 }

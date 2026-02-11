@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Sidebar } from '@/components/Sidebar';
 import { Icons } from '@/components/Icons';
 import { useTrelloCredentials, useTrelloConnectionTest } from '@/hooks/useTrelloData';
+
+export const dynamic = 'force-dynamic';
 
 interface APIConnection {
   id: string;
@@ -142,30 +143,27 @@ export default function SettingsPage() {
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#f1f5f9', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
-      <Sidebar />
+    <div style={{ minHeight: '100vh', background: '#f1f5f9', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+      {/* Header */}
+      <header style={{ 
+        background: 'white', 
+        padding: '14px 24px', 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        borderBottom: '1px solid #e8ecf0', 
+        position: 'sticky', 
+        top: 0, 
+        zIndex: 50 
+      }}>
+        <div>
+          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#00293f' }}>Settings</h1>
+          <p style={{ margin: '2px 0 0', fontSize: 12, color: '#64748b' }}>Manage API connections and integrations</p>
+        </div>
+      </header>
 
-      <main style={{ flex: 1, marginLeft: 220 }}>
-        {/* Header */}
-        <header style={{ 
-          background: 'white', 
-          padding: '14px 24px', 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center', 
-          borderBottom: '1px solid #e8ecf0', 
-          position: 'sticky', 
-          top: 0, 
-          zIndex: 50 
-        }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#00293f' }}>Settings</h1>
-            <p style={{ margin: '2px 0 0', fontSize: 12, color: '#64748b' }}>Manage API connections and integrations</p>
-          </div>
-        </header>
-
-        {/* Content */}
-        <div style={{ padding: 24, maxWidth: 800 }}>
+      {/* Content */}
+      <div style={{ padding: 24, maxWidth: 800 }}>
           <div style={{ 
             background: 'white', 
             borderRadius: 12, 
@@ -480,8 +478,7 @@ export default function SettingsPage() {
               For QuickBooks, visit <a href="https://developer.intuit.com" target="_blank" rel="noopener noreferrer" style={{ color: '#00293f' }}>developer.intuit.com</a> to create an app.
             </p>
           </div>
-        </div>
-      </main>
+      </div>
     </div>
   );
 }
