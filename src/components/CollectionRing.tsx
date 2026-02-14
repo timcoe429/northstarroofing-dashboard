@@ -4,11 +4,12 @@ import { formatCurrency } from '@/lib/utils';
 interface CollectionRingProps {
   collected: number;
   uncollected: number;
+  emptySubtext?: string;
 }
 
-export const CollectionRing: React.FC<CollectionRingProps> = ({ collected, uncollected }) => {
+export const CollectionRing: React.FC<CollectionRingProps> = ({ collected, uncollected, emptySubtext }) => {
   const total = collected + uncollected;
-  const percentage = Math.round((collected / total) * 100);
+  const percentage = total > 0 ? Math.round((collected / total) * 100) : 0;
   const circumference = 2 * Math.PI * 45;
   const offset = circumference - (percentage / 100) * circumference;
   
@@ -49,14 +50,17 @@ export const CollectionRing: React.FC<CollectionRingProps> = ({ collected, uncol
             strokeDashoffset={offset} 
           />
         </svg>
-        <div style={{ 
-          position: 'absolute', 
-          top: '50%', 
-          left: '50%', 
-          transform: 'translate(-50%, -50%)', 
-          textAlign: 'center' 
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          textAlign: 'center',
         }}>
           <p style={{ fontSize: 20, fontWeight: 700, color: '#00293f', margin: 0 }}>{percentage}%</p>
+          {total === 0 && emptySubtext && (
+            <p style={{ fontSize: 9, color: '#64748b', margin: '2px 0 0' }}>{emptySubtext}</p>
+          )}
         </div>
       </div>
       <div style={{ display: 'flex', gap: 16, marginTop: 12, width: '100%', justifyContent: 'center' }}>

@@ -17,6 +17,7 @@ interface ProfitDetails {
     cost: number;
     profit: number;
   }>;
+  avgMargin?: number;
 }
 
 interface ProfitDetailContentProps {
@@ -47,7 +48,9 @@ export const ProfitDetailContent: React.FC<ProfitDetailContentProps> = ({ data }
           <p style={{ margin: 0, fontSize: 11, color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>
             Avg Margin
           </p>
-          <p style={{ margin: '8px 0 0', fontSize: 28, fontWeight: 700, color: '#00293f' }}>22%</p>
+          <p style={{ margin: '8px 0 0', fontSize: 28, fontWeight: 700, color: '#00293f' }}>
+            {data.avgMargin !== undefined ? `${data.avgMargin}%` : '0%'}
+          </p>
         </div>
       </div>
       <h3 style={{ 
@@ -76,8 +79,8 @@ export const ProfitDetailContent: React.FC<ProfitDetailContentProps> = ({ data }
           <p style={{ margin: 0, fontWeight: 600, color: '#00293f', fontSize: 13 }}>{item.type}</p>
           <div>
             <div style={{ display: 'flex', height: 20, borderRadius: 4, overflow: 'hidden' }}>
-              <div style={{ width: `${(item.cost / item.revenue) * 100}%`, background: '#cbd5e1' }} />
-              <div style={{ width: `${(item.profit / item.revenue) * 100}%`, background: '#059669' }} />
+              <div style={{ width: `${item.revenue > 0 ? (item.cost / item.revenue) * 100 : 0}%`, background: '#cbd5e1' }} />
+              <div style={{ width: `${item.revenue > 0 ? (item.profit / item.revenue) * 100 : 0}%`, background: '#059669' }} />
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3 }}>
               <span style={{ fontSize: 10, color: '#64748b' }}>Cost: {formatCurrency(item.cost)}</span>

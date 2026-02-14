@@ -25,6 +25,7 @@ import {
   getCardListName
 } from '@/utils/trello-helpers';
 import { COLORS, SPACING } from '@/styles/constants';
+import type { TrelloCard, TrelloCustomField } from '@/types';
 
 // Build/Jobs board columns in order
 const BUILD_COLUMNS = [
@@ -35,29 +36,95 @@ const BUILD_COLUMNS = [
   'Final Inspection',
   'Invoice Sent',
   'Paid',
-  'Warranty / Closeout'
+  'Warranty / Closeout',
 ];
 
-// Active project columns (before invoicing)
+// Revenue = Invoice Sent (billable milestone) + Paid + Warranty/Closeout
+const REVENUE_COLUMNS = ['Invoice Sent', 'Paid', 'Warranty / Closeout'];
+
+// Active project columns (before invoicing, NOT revenue yet)
 const ACTIVE_COLUMNS = [
   'Ready to Schedule',
-  'Scheduled', 
+  'Scheduled',
   'Materials Ordered',
   'In Progress',
-  'Final Inspection'
+  'Final Inspection',
 ];
 
 // Material type labels (same as Pipeline)
 const MATERIAL_LABELS = [
   'Asphalt',
-  'Synthetic', 
+  'Synthetic',
   'TPO',
   'Standing Seam Metal',
   'Wood Shingle',
   'Pro Panel',
   'Corrugated Metal',
-  'Asphalt-Presidential'
+  'Asphalt-Presidential',
 ];
+
+// Job type: Repair label → Repairs; Inspection/Insurance/Gutters → Other; else → Replacements (default)
+function getJobType(card: { labels?: Array<{ name: string }>; name?: string }): 'Replacements' | 'Repairs' | 'Other' {
+  const labels = Array.isArray(card.labels) ? card.labels : [];
+  if (labels.some((l) => l.name === 'Repair')) return 'Repairs';
+  if (
+    labels.some((l) => ['Inspection', 'Insurance', 'Gutters'].includes(l.name)) ||
+    (card.name?.toLowerCase().includes('gutter') ?? false)
+  )
+    return 'Other';
+  return 'Replacements';
+}
+
+// Get creation date from Trello card ID (first 8 hex = Unix timestamp)
+function getCreationDateFromCardId(cardId: string): Date | null {
+  if (!cardId || cardId.length < 8) return null;
+  const ts = parseInt(cardId.substring(0, 8), 16);
+  if (isNaN(ts) || ts <= 0) return null;
+  const date = new Date(ts * 1000);
+  return isNaN(date.getTime()) ? null : date;
+}
+
+// Monthly revenue: group revenue cards by month entered Invoice Sent
+function computeMonthlyRevenue(
+  revenueCards: TrelloCard[],
+  customFields: TrelloCustomField[],
+  cardDateEnteredInvoiceSent: Record<string, string>,
+  monthsBack = 12
+): Array<{ month: string; monthKey: string; revenue: number; jobs: number }> {
+  const now = new Date();
+  const monthData = new Map<string, { revenue: number; jobs: number }>();
+
+  for (let i = 0; i < monthsBack; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    monthData.set(key, { revenue: 0, jobs: 0 });
+  }
+
+  revenueCards.forEach((card) => {
+    const dateStr = cardDateEnteredInvoiceSent[card.id];
+    const date = dateStr ? new Date(dateStr) : getCreationDateFromCardId(card.id);
+    if (!date) return;
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    if (!monthData.has(key)) monthData.set(key, { revenue: 0, jobs: 0 });
+    const entry = monthData.get(key)!;
+    const financials = parseCustomFields(card, customFields);
+    entry.revenue += financials.contractAmount;
+    entry.jobs += 1;
+  });
+
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return Array.from(monthData.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, data]) => {
+      const [y, m] = key.split('-');
+      return {
+        month: monthNames[parseInt(m, 10) - 1],
+        monthKey: key,
+        revenue: data.revenue,
+        jobs: data.jobs,
+      };
+    });
+}
 
 export default function NorthstarDashboard() {
   const { data, loading, error } = useTrelloBoard('build');
@@ -124,26 +191,28 @@ export default function NorthstarDashboard() {
   }
 
   // Extract data or use empty defaults
-  const { cards = [], lists = [], customFields = [] } = data || {};
-  
-  // Calculate KPIs from real data
-  const totalRevenue = sumContractAmounts(cards, customFields);
-  const grossProfit = sumNetProfit(cards, customFields);
-  const profitMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
-  
-  // Active projects: Ready to Schedule through Final Inspection
-  const activeCards = getCardsByLists(cards, lists, ACTIVE_COLUMNS);
-  const inProgressCards = getCardsByList(cards, lists, 'In Progress');
-  
-  // Average job size
-  const avgJobSize = cards.length > 0 ? totalRevenue / cards.length : 0;
-  
-  // Collections data: Invoice Sent vs Paid
+  const { cards = [], lists = [], customFields = [], cardDateEnteredInvoiceSent = {} } = data || {};
+
+  // Revenue = Invoice Sent + Paid + Warranty/Closeout
+  const revenueCards = getCardsByLists(cards, lists, REVENUE_COLUMNS);
   const invoiceSentCards = getCardsByList(cards, lists, 'Invoice Sent');
   const paidCards = getCardsByList(cards, lists, 'Paid');
-  const invoiceSentValue = sumContractAmounts(invoiceSentCards, customFields);
-  const paidValue = sumContractAmounts(paidCards, customFields);
-  const collectionRate = (invoiceSentValue + paidValue) > 0 ? (paidValue / (invoiceSentValue + paidValue)) * 100 : 0;
+  const warrantyCards = getCardsByList(cards, lists, 'Warranty / Closeout');
+
+  const totalRevenue = sumContractAmounts(revenueCards, customFields);
+  const grossProfit = sumNetProfit(revenueCards, customFields);
+  const profitMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
+
+  // Active projects: Ready to Schedule through Final Inspection (NOT revenue yet)
+  const activeCards = getCardsByLists(cards, lists, ACTIVE_COLUMNS);
+  const inProgressCards = getCardsByList(cards, lists, 'In Progress');
+
+  // Average job size (revenue cards only)
+  const avgJobSize = revenueCards.length > 0 ? totalRevenue / revenueCards.length : 0;
+
+  // Collections: Collected = Paid + Warranty; Outstanding = Invoice Sent
+  const collected = sumContractAmounts(paidCards, customFields) + sumContractAmounts(warrantyCards, customFields);
+  const outstanding = sumContractAmounts(invoiceSentCards, customFields);
   
   // Pipeline segments for Build/Jobs board
   const pipelineSegments = BUILD_COLUMNS.slice(0, -1).map((column, index) => { // Exclude Warranty/Closeout
@@ -177,9 +246,78 @@ export default function NorthstarDashboard() {
     replacements: replacementCards.length,
     repairs: repairCards.length,
     inspections: inspectionCards.length,
-    gutters: gutterCards.length
+    gutters: gutterCards.length,
   };
-  
+
+  // Monthly revenue for chart
+  const monthlyRevenueData = computeMonthlyRevenue(revenueCards, customFields, cardDateEnteredInvoiceSent);
+
+  // Revenue Breakdown modal: by month, by job type
+  const revenueDetailData = monthlyRevenueData.map((m) => {
+    const monthCards = revenueCards.filter((card) => {
+      const dateStr = cardDateEnteredInvoiceSent[card.id];
+      const date = dateStr ? new Date(dateStr) : getCreationDateFromCardId(card.id);
+      if (!date) return false;
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      return key === m.monthKey;
+    });
+    const replacements = monthCards.filter((c) => getJobType(c) === 'Replacements');
+    const repairs = monthCards.filter((c) => getJobType(c) === 'Repairs');
+    const inspectionCards = monthCards.filter((c) => (c.labels ?? []).some((l: { name: string }) => l.name === 'Inspection' || l.name === 'Insurance'));
+    const gutterCards = monthCards.filter((c) => (c.labels ?? []).some((l: { name: string }) => l.name === 'Gutters') || (c.name?.toLowerCase().includes('gutter') ?? false));
+    return {
+      month: m.month,
+      year: parseInt(m.monthKey.split('-')[0], 10),
+      revenue: m.revenue,
+      jobs: m.jobs,
+      replacements: sumContractAmounts(replacements, customFields),
+      repairs: sumContractAmounts(repairs, customFields),
+      inspections: sumContractAmounts(inspectionCards, customFields),
+      gutters: sumContractAmounts(gutterCards, customFields),
+    };
+  });
+
+  // Profit Analysis modal
+  const profitByType = (['Replacements', 'Repairs', 'Other'] as const).map((type) => {
+    const typeCards = revenueCards.filter((c) => getJobType(c) === type);
+    const revenue = sumContractAmounts(typeCards, customFields);
+    const profit = sumNetProfit(typeCards, customFields);
+    const cost = revenue - profit;
+    return {
+      type,
+      revenue,
+      cost,
+      profit,
+      margin: revenue > 0 ? Math.round((profit / revenue) * 100) : 0,
+    };
+  }).filter((t) => t.revenue > 0);
+  const profitDetailData = {
+    byType: profitByType,
+    byMonth: [] as Array<{ month: string; revenue: number; cost: number; profit: number }>,
+    avgMargin: totalRevenue > 0 ? Math.round((grossProfit / totalRevenue) * 100) : 0,
+  };
+
+  // Avg Job Size modal
+  const avgJobByType = (['Replacements', 'Repairs', 'Other'] as const).map((type) => {
+    const typeCards = revenueCards.filter((c) => getJobType(c) === type);
+    const total = sumContractAmounts(typeCards, customFields);
+    const count = typeCards.length;
+    return {
+      type,
+      avgSize: count > 0 ? total / count : 0,
+      count,
+      total,
+    };
+  }).filter((t) => t.count > 0);
+  const avgJobSizeData = {
+    byType: avgJobByType,
+    trend: monthlyRevenueData.slice(-4).map((m) => ({
+      period: m.month,
+      avgSize: m.jobs > 0 ? m.revenue / m.jobs : 0,
+    })),
+    overallAvg: revenueCards.length > 0 ? totalRevenue / revenueCards.length : 0,
+  };
+
   // Recent projects table data
   const recentProjectsData = activeCards.slice(0, 8).map(card => {
     const financials = parseCustomFields(card, customFields);
@@ -201,10 +339,10 @@ export default function NorthstarDashboard() {
     <div style={{ minHeight: '100vh', background: COLORS.gray100, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
       {/* Modals */}
       <Modal isOpen={activeModal === 'revenue'} onClose={() => setActiveModal(null)} title="Revenue Breakdown">
-        <RevenueDetailContent data={[]} />
+        <RevenueDetailContent data={revenueDetailData} />
       </Modal>
       <Modal isOpen={activeModal === 'profit'} onClose={() => setActiveModal(null)} title="Profit Analysis">
-        <ProfitDetailContent data={{ byType: [], byMonth: [] }} />
+        <ProfitDetailContent data={profitDetailData} />
       </Modal>
       <Modal isOpen={activeModal === 'activeProjects'} onClose={() => setActiveModal(null)} title="Active Projects">
         <ActiveProjectsContent projects={activeCards.map((card, index) => {
@@ -226,7 +364,7 @@ export default function NorthstarDashboard() {
         })} />
       </Modal>
       <Modal isOpen={activeModal === 'avgJobSize'} onClose={() => setActiveModal(null)} title="Average Job Size Analysis">
-        <AvgJobSizeContent data={{ byType: [], trend: [] }} />
+        <AvgJobSizeContent data={avgJobSizeData} />
       </Modal>
 
       <Header title="Dashboard" subtitle={`Welcome back, ${user?.email ? getDisplayName(user.email) : 'User'}`} showTimeRange={false} />
@@ -235,21 +373,21 @@ export default function NorthstarDashboard() {
         <div style={{ padding: SPACING[6] }}>
           {/* Top Stats Row */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: SPACING.gridGap, marginBottom: SPACING.sectionMargin }}>
-            <StatCard 
-              label="Total Revenue" 
-              value={formatCurrency(totalRevenue)} 
-              subtext={cards.length > 0 ? `${cards.length} total projects` : 'No projects yet'} 
-              icon="💰" 
-              color={COLORS.navy} 
-              onClick={() => setActiveModal('revenue')} 
+            <StatCard
+              label="Total Revenue"
+              value={formatCurrency(totalRevenue)}
+              subtext={revenueCards.length > 0 ? `${revenueCards.length} total projects` : 'No projects yet'}
+              icon="💰"
+              color={COLORS.navy}
+              onClick={() => setActiveModal('revenue')}
             />
-            <StatCard 
-              label="Gross Profit" 
-              value={formatCurrency(grossProfit)} 
-              subtext={`${profitMargin.toFixed(1)}% margin`} 
-              icon="📈" 
-              color={COLORS.success} 
-              onClick={() => setActiveModal('profit')} 
+            <StatCard
+              label="Gross Profit"
+              value={formatCurrency(grossProfit)}
+              subtext={totalRevenue > 0 ? `${profitMargin.toFixed(1)}% margin` : '0% margin'}
+              icon="📈"
+              color={COLORS.success}
+              onClick={() => setActiveModal('profit')}
             />
             <StatCard 
               label="Active Projects" 
@@ -259,13 +397,13 @@ export default function NorthstarDashboard() {
               color={COLORS.info} 
               onClick={() => setActiveModal('activeProjects')} 
             />
-            <StatCard 
-              label="Avg Job Size" 
-              value={formatCurrency(avgJobSize)} 
-              subtext={cards.length > 0 ? `Based on ${cards.length} projects` : 'No data yet'} 
-              icon="📊" 
-              color={COLORS.navy} 
-              onClick={() => setActiveModal('avgJobSize')} 
+            <StatCard
+              label="Avg Job Size"
+              value={formatCurrency(avgJobSize)}
+              subtext={revenueCards.length > 0 ? `Based on ${revenueCards.length} invoiced projects` : 'No invoiced projects yet'}
+              icon="📊"
+              color={COLORS.navy}
+              onClick={() => setActiveModal('avgJobSize')}
             />
           </div>
 
@@ -279,9 +417,9 @@ export default function NorthstarDashboard() {
 
           {/* Middle Row - Charts */}
           <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: SPACING.gridGap, marginBottom: SPACING.sectionMargin }}>
-            <RevenueChart data={[]} />
+            <RevenueChart data={monthlyRevenueData} />
             <JobTypesCard data={jobTypeData} />
-            <CollectionRing collected={paidValue} uncollected={invoiceSentValue} />
+            <CollectionRing collected={collected} uncollected={outstanding} emptySubtext="No invoices sent" />
           </div>
 
           {/* Recent Projects */}

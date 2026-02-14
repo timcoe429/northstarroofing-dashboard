@@ -3,6 +3,7 @@ import { formatCurrency } from '@/lib/utils';
 
 interface RevenueData {
   month: string;
+  year?: number;
   revenue: number;
   jobs: number;
   replacements: number;
@@ -84,7 +85,9 @@ export const RevenueDetailContent: React.FC<RevenueDetailContentProps> = ({ data
         <tbody>
           {data.map((row, idx) => (
             <tr key={row.month} style={{ background: idx % 2 === 0 ? 'white' : '#fafbfc' }}>
-              <td style={{ padding: 10, fontWeight: 600, color: '#00293f' }}>{row.month} 2024</td>
+              <td style={{ padding: 10, fontWeight: 600, color: '#00293f' }}>
+                {row.month} {row.year ?? new Date().getFullYear()}
+              </td>
               <td style={{ padding: 10, textAlign: 'right', color: '#64748b' }}>{row.jobs}</td>
               <td style={{ padding: 10, textAlign: 'right', color: '#334155' }}>{formatCurrency(row.replacements)}</td>
               <td style={{ padding: 10, textAlign: 'right', color: '#334155' }}>{formatCurrency(row.repairs)}</td>

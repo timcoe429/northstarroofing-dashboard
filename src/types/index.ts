@@ -136,6 +136,7 @@ export interface TrelloBoardData {
   labels: TrelloLabel[];
   customFields: TrelloCustomField[];
   cardDaysInColumn?: Record<string, number>;
+  cardDateEnteredInvoiceSent?: Record<string, string>;
 }
 
 export interface CardFinancials {

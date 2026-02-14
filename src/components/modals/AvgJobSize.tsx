@@ -16,6 +16,7 @@ interface AvgJobTrend {
 interface AvgJobDetails {
   byType: AvgJobByType[];
   trend: AvgJobTrend[];
+  overallAvg?: number;
 }
 
 interface AvgJobSizeContentProps {
@@ -23,9 +24,10 @@ interface AvgJobSizeContentProps {
 }
 
 export const AvgJobSizeContent: React.FC<AvgJobSizeContentProps> = ({ data }) => {
-  const maxAvg = Math.max(...data.byType.map(d => d.avgSize));
+  const maxAvg = data.byType.length > 0 ? Math.max(...data.byType.map((d) => d.avgSize), 1) : 1;
   const colors = ['#00293f', '#B1000F', '#64748b', '#94a3b8'];
-  
+  const overallAvg = data.overallAvg ?? 0;
+
   return (
     <div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 20 }}>
@@ -40,7 +42,7 @@ export const AvgJobSizeContent: React.FC<AvgJobSizeContentProps> = ({ data }) =>
             Overall Average
           </p>
           <p style={{ margin: '8px 0 0', fontSize: 28, fontWeight: 700, color: '#00293f' }}>
-            {formatCurrency(18032)}
+            {formatCurrency(overallAvg)}
           </p>
         </div>
         <div style={{ background: '#f8fafc', padding: 18, borderRadius: 10, textAlign: 'center' }}>
@@ -53,9 +55,11 @@ export const AvgJobSizeContent: React.FC<AvgJobSizeContentProps> = ({ data }) =>
         </div>
         <div style={{ background: '#f0fdf4', padding: 18, borderRadius: 10, textAlign: 'center' }}>
           <p style={{ margin: 0, fontSize: 11, color: '#059669', textTransform: 'uppercase', fontWeight: 600 }}>
-            YoY Growth
+            Invoiced Jobs
           </p>
-          <p style={{ margin: '8px 0 0', fontSize: 28, fontWeight: 700, color: '#059669' }}>+12%</p>
+          <p style={{ margin: '8px 0 0', fontSize: 28, fontWeight: 700, color: '#059669' }}>
+            {data.byType.reduce((s, d) => s + d.count, 0)}
+          </p>
         </div>
       </div>
       
@@ -79,9 +83,10 @@ export const AvgJobSizeContent: React.FC<AvgJobSizeContentProps> = ({ data }) =>
             <p style={{ margin: '2px 0 0', fontSize: 11, color: '#64748b' }}>{item.count} jobs</p>
           </div>
           <div style={{ height: 28, background: '#f1f5f9', borderRadius: 5, overflow: 'hidden' }}>
-            <div style={{ 
-              height: '100%', 
-              width: `${(item.avgSize / maxAvg) * 100}%`, 
+            <div
+              style={{
+                height: '100%',
+                width: `${maxAvg > 0 ? (item.avgSize / maxAvg) * 100 : 0}%`,
               background: colors[idx], 
               borderRadius: 5, 
               display: 'flex', 
@@ -89,7 +94,7 @@ export const AvgJobSizeContent: React.FC<AvgJobSizeContentProps> = ({ data }) =>
               justifyContent: 'flex-end', 
               paddingRight: 10 
             }}>
-              {item.avgSize / maxAvg > 0.3 && (
+              {maxAvg > 0 && item.avgSize / maxAvg > 0.3 && (
                 <span style={{ color: 'white', fontSize: 12, fontWeight: 600 }}>
                   {formatCurrency(item.avgSize)}
                 </span>
@@ -137,7 +142,7 @@ export const AvgJobSizeContent: React.FC<AvgJobSizeContentProps> = ({ data }) =>
             }}>
               {formatCurrency(item.avgSize)}
             </p>
-            {idx > 0 && (
+            {idx > 0 && data.trend[idx - 1].avgSize > 0 && (
               <p style={{ margin: '3px 0 0', fontSize: 11, color: '#059669' }}>
                 +{Math.round(((item.avgSize - data.trend[idx - 1].avgSize) / data.trend[idx - 1].avgSize) * 100)}%
               </p>

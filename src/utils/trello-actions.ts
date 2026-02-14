@@ -63,3 +63,43 @@ export function buildCardDaysInColumnMap(
 
   return map;
 }
+
+/**
+ * Build a map of card ID → ISO date when card entered a specific list.
+ * Used for monthly revenue: when did each card enter "Invoice Sent".
+ * For cards in Paid/Warranty, they passed through Invoice Sent — find that action.
+ * Fallback: creation date from card ID, or dateLastActivity (known imperfection).
+ */
+export function buildCardDateEnteredListMap(
+  cards: TrelloCard[],
+  lists: TrelloList[],
+  actions: TrelloListMoveAction[],
+  targetListName: string
+): Record<string, string> {
+  const targetList = lists.find((l) => l.name === targetListName);
+  if (!targetList) return {};
+
+  const map: Record<string, string> = {};
+
+  for (const card of cards) {
+    const action = actions.find(
+      (a) =>
+        a.data?.card?.id === card.id &&
+        (a.data.list?.id === targetList.id || a.data.listAfter?.id === targetList.id)
+    );
+
+    if (action?.date) {
+      map[card.id] = action.date;
+    } else {
+      const created = getCreationDateFromCardId(card.id);
+      if (created) {
+        map[card.id] = created.toISOString();
+      } else if (card.dateLastActivity) {
+        // KNOWN IMPERFECTION: dateLastActivity updates on any edit
+        map[card.id] = card.dateLastActivity;
+      }
+    }
+  }
+
+  return map;
+}
