@@ -118,11 +118,24 @@ export interface TrelloAttachment {
   url: string;
 }
 
+export interface TrelloListMoveAction {
+  id: string;
+  type: string;
+  date: string;
+  data: {
+    card: { id: string };
+    list?: { id: string; name?: string };
+    listAfter?: { id: string };
+    listBefore?: { id: string };
+  };
+}
+
 export interface TrelloBoardData {
   lists: TrelloList[];
   cards: TrelloCard[];
   labels: TrelloLabel[];
   customFields: TrelloCustomField[];
+  cardDaysInColumn?: Record<string, number>;
 }
 
 export interface CardFinancials {

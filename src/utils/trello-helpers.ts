@@ -42,9 +42,6 @@ export function parseCustomFields(
     const fieldName = fieldMap.get(item.idCustomField);
     if (!fieldName) return;
 
-    // Debug logging to see what data is coming back
-    console.log('Card:', card.name, 'Field:', fieldName, 'Value:', JSON.stringify(item.value));
-
     // Parse numeric value from either number or text field
     let numericValue = 0;
     if (item.value.number !== undefined) {
@@ -76,8 +73,21 @@ export function parseCustomFields(
 // ===========================================
 
 /**
+ * Get days in column: uses accurate map when available, else falls back to dateLastActivity.
+ */
+export function getDaysInColumn(
+  card: TrelloCard,
+  cardDaysInColumn?: Record<string, number>
+): number {
+  if (cardDaysInColumn && card.id in cardDaysInColumn) {
+    return cardDaysInColumn[card.id];
+  }
+  return calculateDaysInColumn(card);
+}
+
+/**
  * Calculate how many days a card has been in its current column
- * Uses dateLastActivity as the proxy for "last moved"
+ * Uses dateLastActivity as the proxy for "last moved" (used as fallback when map unavailable)
  */
 export function calculateDaysInColumn(card: TrelloCard): number {
   if (!card.dateLastActivity) {

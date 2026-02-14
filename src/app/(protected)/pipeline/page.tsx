@@ -10,7 +10,7 @@ import { AlertCard } from '@/components/shared/AlertCard';
 import { ActionItemsCard, type ActionItem } from '@/components/shared/ActionItemsCard';
 import { DataTable } from '@/components/shared/DataTable';
 import { Modal } from '@/components/shared/Modal';
-import { MaterialBreakdown } from '@/components/MaterialBreakdown';
+import { TimeInColumnCard } from '@/components/TimeInColumnCard';
 import { PipelineBreakdownContent } from '@/components/modals/PipelineBreakdown';
 import { ProfitByMaterialContent } from '@/components/modals/ProfitByMaterial';
 import { EstimatesDetailContent } from '@/components/modals/EstimatesDetail';
@@ -21,7 +21,7 @@ import {
   getCardsByList, 
   getCardsByLists,
   formatCurrency, 
-  calculateDaysInColumn,
+  getDaysInColumn,
   calculateDaysOverdue,
   hasUrgentLabel,
   sumContractAmounts,
@@ -107,25 +107,30 @@ const processMaterialProfitData = (cards: TrelloCard[], customFields: TrelloCust
   return materialData;
 };
 
-const processEstimatesData = (estimatesSentCards: TrelloCard[], followUpCards: TrelloCard[], customFields: TrelloCustomField[], lists: TrelloList[]) => {
+const processEstimatesData = (
+  estimatesSentCards: TrelloCard[],
+  followUpCards: TrelloCard[],
+  customFields: TrelloCustomField[],
+  lists: TrelloList[],
+  cardDaysInColumn?: Record<string, number>
+) => {
   const allEstimateCards = [...estimatesSentCards, ...followUpCards];
-  
-  return allEstimateCards.map(card => {
+
+  return allEstimateCards.map((card) => {
     const financials = parseCustomFields(card, customFields);
     const stage = getCardListName(card, lists) as 'Estimate Sent' | 'Follow-Up';
-    
-    // Get primary material label
-    const materialLabel = Array.isArray(card.labels) 
-      ? card.labels.find(label => MATERIAL_LABELS.includes(label.name))?.name || 'Unknown'
+
+    const materialLabel = Array.isArray(card.labels)
+      ? card.labels.find((label) => MATERIAL_LABELS.includes(label.name))?.name || 'Unknown'
       : 'Unknown';
-    
+
     return {
       id: card.id,
       address: card.name,
       stage,
       value: financials.contractAmount,
-      daysInStage: calculateDaysInColumn(card),
-      material: materialLabel
+      daysInStage: getDaysInColumn(card, cardDaysInColumn),
+      material: materialLabel,
     };
   });
 };
@@ -246,7 +251,7 @@ export default function PipelinePage() {
   }
 
   // Calculate data for components
-  const { cards, lists, customFields } = data;
+  const { cards, lists, customFields, cardDaysInColumn = {} } = data;
   
   // Get active pipeline cards (exclude Won and Lost/Dead)
   const activePipelineCards = getCardsByLists(cards, lists, ACTIVE_PIPELINE_COLUMNS);
@@ -286,7 +291,13 @@ export default function PipelinePage() {
 
   // Process data for modals
   const materialProfitData = processMaterialProfitData(activePipelineCards, customFields);
-  const estimatesData = processEstimatesData(estimatesSentCards, followUpCards, customFields, lists);
+  const estimatesData = processEstimatesData(
+    estimatesSentCards,
+    followUpCards,
+    customFields,
+    lists,
+    cardDaysInColumn
+  );
   const wonMaterials = extractMaterialsFromCards(wonCards, customFields);
   const lostMaterials = extractMaterialsFromCards(lostCards, customFields);
 
@@ -318,10 +329,10 @@ export default function PipelinePage() {
   });
   timsItems.sort((a, b) => (a.color === 'red' ? -1 : b.color === 'red' ? 1 : 0));
 
-  // Omiah's Action Items: Follow-Up + Estimate Review — use dateLastActivity staleness
+  // Omiah's Action Items: Follow-Up + Estimate Review — accurate days in column from list-move actions
   const omiahsItems: ActionItem[] = [];
-  followUpCards.forEach(card => {
-    const daysStale = calculateDaysInColumn(card);
+  followUpCards.forEach((card) => {
+    const daysStale = getDaysInColumn(card, cardDaysInColumn);
     if (daysStale >= 3) {
       omiahsItems.push({
         cardName: card.name,
@@ -332,8 +343,8 @@ export default function PipelinePage() {
       });
     }
   });
-  estimateReviewCards.forEach(card => {
-    const daysInColumn = calculateDaysInColumn(card);
+  estimateReviewCards.forEach((card) => {
+    const daysInColumn = getDaysInColumn(card, cardDaysInColumn);
     if (daysInColumn >= 1) {
       omiahsItems.push({
         cardName: card.name,
@@ -488,7 +499,11 @@ export default function PipelinePage() {
               items={omiahsItems}
               emptyMessage="All caught up!"
             />
-            <MaterialBreakdown cards={activePipelineCards} customFields={customFields} />
+            <TimeInColumnCard
+              cards={cards}
+              lists={lists}
+              cardDaysInColumn={cardDaysInColumn}
+            />
           </div>
 
           {/* Pipeline Table */}
@@ -620,7 +635,7 @@ export default function PipelinePage() {
                 contractAmount: financials.contractAmount,
                 office10Pct: financials.office10Pct,
                 netProfit: financials.netProfit,
-                daysInStage: calculateDaysInColumn(card)
+                daysInStage: getDaysInColumn(card, cardDaysInColumn)
                 };
               })
             }

@@ -1,6 +1,7 @@
 // Server-side: Trello Sales/Estimates board data
 import { NextResponse } from 'next/server';
 import { TrelloService } from '@/lib/api/trello';
+import { buildCardDaysInColumnMap } from '@/utils/trello-actions';
 
 function getEnv() {
   const apiKey = process.env.TRELLO_API_KEY || '';
@@ -28,8 +29,16 @@ export async function GET() {
 
   try {
     const service = new TrelloService({ apiKey, token, salesBoardId });
-    const boardData = await service.getFullBoardData(salesBoardId);
-    return NextResponse.json(boardData);
+    const [boardData, actions] = await Promise.all([
+      service.getFullBoardData(salesBoardId),
+      service.getBoardListMoveActions(salesBoardId),
+    ]);
+    const cardDaysInColumn = buildCardDaysInColumnMap(
+      boardData.cards,
+      boardData.lists,
+      actions
+    );
+    return NextResponse.json({ ...boardData, cardDaysInColumn });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     const status = message.includes('401') ? 401 : message.includes('403') ? 403 : message.includes('404') ? 404 : 500;

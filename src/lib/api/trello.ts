@@ -10,6 +10,7 @@ import type {
   TrelloCustomFieldValue,
   TrelloAttachment,
   TrelloBoardData,
+  TrelloListMoveAction,
   Project 
 } from '@/types';
 
@@ -107,6 +108,16 @@ export class TrelloService {
     );
     if (!response.ok) {
       throw new Error(`Failed to fetch custom fields for board ${boardId}: ${response.statusText}`);
+    }
+    return response.json();
+  }
+
+  async getBoardListMoveActions(boardId: string): Promise<TrelloListMoveAction[]> {
+    const response = await fetch(
+      `${TRELLO_API_BASE}/boards/${boardId}/actions?${this.authParams}&filter=updateCard:idList&limit=1000`
+    );
+    if (!response.ok) {
+      throw new Error(`Failed to fetch list-move actions for board ${boardId}: ${response.statusText}`);
     }
     return response.json();
   }
