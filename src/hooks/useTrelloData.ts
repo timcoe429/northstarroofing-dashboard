@@ -21,6 +21,7 @@ interface UseTrelloBoardReturn {
   loading: boolean;
   error: string | null;
   refresh: () => void;
+  lastFetchedAt: Date | null;
 }
 
 const API_URL = {
@@ -50,6 +51,7 @@ export function useTrelloBoard(boardType: 'sales' | 'build'): UseTrelloBoardRetu
   const [data, setData] = useState<TrelloBoardData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastFetchedAt, setLastFetchedAt] = useState<Date | null>(null);
 
   const fetchBoardData = useCallback(async () => {
     const url = API_URL[boardType];
@@ -72,6 +74,7 @@ export function useTrelloBoard(boardType: 'sales' | 'build'): UseTrelloBoardRetu
       }
 
       setData(body as TrelloBoardData);
+      setLastFetchedAt(new Date());
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error occurred';
       if (msg.includes('fetch') || msg.includes('network')) {
@@ -98,6 +101,7 @@ export function useTrelloBoard(boardType: 'sales' | 'build'): UseTrelloBoardRetu
     loading,
     error,
     refresh,
+    lastFetchedAt,
   };
 }
 

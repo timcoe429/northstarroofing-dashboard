@@ -1,13 +1,16 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Header } from '@/components/Header';
 import { StatCard } from '@/components/shared/StatCard';
 
 export const dynamic = 'force-dynamic';
 import { PipelineBar } from '@/components/shared/PipelineBar';
 import { AlertCard } from '@/components/shared/AlertCard';
-import { ActionItemsCard, type ActionItem } from '@/components/shared/ActionItemsCard';
+import {
+  ActionItemsCardCompact,
+  type ActionItemsTiers,
+} from '@/components/shared/ActionItemsCardCompact';
 import { DataTable } from '@/components/shared/DataTable';
 import { Modal } from '@/components/shared/Modal';
 import { TimeInColumnCard } from '@/components/TimeInColumnCard';
@@ -135,6 +138,97 @@ const processEstimatesData = (
   });
 };
 
+function computeTimTiers(
+  needQuoteCards: TrelloCard[],
+  estimatingCards: TrelloCard[],
+  lists: TrelloList[]
+): ActionItemsTiers {
+  const allCards = [...needQuoteCards, ...estimatingCards];
+  const critical: Array<{ name: string; subtext: string; trelloUrl: string }> = [];
+  const staleByColumn = new Map<string, number>();
+  let onTrack = 0;
+
+  allCards.forEach((card) => {
+    const columnName = getCardListName(card, lists);
+    const trelloUrl = `https://trello.com/c/${card.shortLink}`;
+    const daysOverdue = calculateDaysOverdue(card);
+    const isUrgent = hasUrgentLabel(card);
+
+    if (daysOverdue > 0) {
+      critical.push({
+        name: card.name,
+        subtext: `${daysOverdue} days over`,
+        trelloUrl,
+      });
+    } else if (isUrgent) {
+      staleByColumn.set(columnName, (staleByColumn.get(columnName) ?? 0) + 1);
+    } else {
+      onTrack++;
+    }
+  });
+
+  const staleColumnSummary =
+    staleByColumn.size > 0
+      ? Array.from(staleByColumn.entries())
+          .map(([col, n]) => `${n} in ${col}`)
+          .join(', ')
+      : undefined;
+
+  return {
+    critical: { label: 'critical', count: critical.length, items: critical },
+    stale: { label: 'stale', count: staleByColumn.size > 0 ? Array.from(staleByColumn.values()).reduce((a, b) => a + b, 0) : 0, columnSummary: staleColumnSummary },
+    onTrack: { label: 'onTrack', count: onTrack },
+  };
+}
+
+function computeOmiahTiers(
+  followUpCards: TrelloCard[],
+  estimateReviewCards: TrelloCard[],
+  cardDaysInColumn: Record<string, number>,
+  lists: TrelloList[]
+): ActionItemsTiers {
+  const allCards: Array<{ card: TrelloCard; column: string }> = [
+    ...followUpCards.map((c) => ({ card: c, column: 'Follow-Up' })),
+    ...estimateReviewCards.map((c) => ({ card: c, column: 'Estimate Review' })),
+  ];
+
+  const critical: Array<{ name: string; subtext: string; trelloUrl: string }> = [];
+  const staleByColumn = new Map<string, number>();
+  let onTrack = 0;
+
+  allCards.forEach(({ card, column }) => {
+    const days = getDaysInColumn(card, cardDaysInColumn);
+    const trelloUrl = `https://trello.com/c/${card.shortLink}`;
+
+    if (days >= 7) {
+      critical.push({
+        name: card.name,
+        subtext: `${days} days`,
+        trelloUrl,
+      });
+    } else if (days >= 3) {
+      staleByColumn.set(column, (staleByColumn.get(column) ?? 0) + 1);
+    } else {
+      onTrack++;
+    }
+  });
+
+  const staleColumnSummary =
+    staleByColumn.size > 0
+      ? Array.from(staleByColumn.entries())
+          .map(([col, n]) => `${n} in ${col}`)
+          .join(', ')
+      : undefined;
+
+  const staleCount = Array.from(staleByColumn.values()).reduce((a, b) => a + b, 0);
+
+  return {
+    critical: { label: 'critical', count: critical.length, items: critical },
+    stale: { label: 'stale', count: staleCount, columnSummary: staleColumnSummary },
+    onTrack: { label: 'onTrack', count: onTrack },
+  };
+}
+
 const extractMaterialsFromCards = (cards: TrelloCard[], customFields: TrelloCustomField[]) => {
   const materialMap = new Map<string, { count: number; value: number }>();
   
@@ -161,15 +255,49 @@ const extractMaterialsFromCards = (cards: TrelloCard[], customFields: TrelloCust
 };
 
 export default function PipelinePage() {
-  const { data, loading, error, refresh } = useTrelloBoard('sales');
-  const [timeRange, setTimeRange] = useState('6mo');
+  const { data, loading, error, refresh, lastFetchedAt } = useTrelloBoard('sales');
   const [activeModal, setActiveModal] = useState<string | null>(null);
+
+  // 30-minute polling, paused when tab is hidden
+  useEffect(() => {
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+    const POLL_MS = 30 * 60 * 1000;
+
+    const schedulePoll = () => {
+      if (intervalId) clearInterval(intervalId);
+      intervalId = setInterval(() => {
+        if (document.visibilityState === 'visible') refresh();
+      }, POLL_MS);
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        refresh();
+        schedulePoll();
+      } else if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+    };
+
+    schedulePoll();
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [refresh]);
 
   // Loading state
   if (loading) {
     return (
       <div style={{ minHeight: '100vh', background: COLORS.gray100 }}>
-        <Header title="Pipeline" subtitle="Sales pipeline overview" showTimeRange={false} />
+        <Header
+          title="Pipeline"
+          subtitle="Sales pipeline overview"
+          showTimeRange={false}
+          refreshConfig={{ onRefresh: refresh, refreshing: loading, lastUpdated: lastFetchedAt }}
+        />
           <div style={{ 
             padding: SPACING[6], 
             display: 'flex', 
@@ -202,7 +330,12 @@ export default function PipelinePage() {
   if (error) {
     return (
       <div style={{ minHeight: '100vh', background: COLORS.gray100 }}>
-        <Header title="Pipeline" subtitle="Sales pipeline overview" showTimeRange={false} />
+        <Header
+          title="Pipeline"
+          subtitle="Sales pipeline overview"
+          showTimeRange={false}
+          refreshConfig={{ onRefresh: refresh, refreshing: loading, lastUpdated: lastFetchedAt }}
+        />
           <div style={{ 
             padding: SPACING[6], 
             display: 'flex', 
@@ -228,7 +361,12 @@ export default function PipelinePage() {
   if (!data) {
     return (
       <div style={{ minHeight: '100vh', background: COLORS.gray100 }}>
-        <Header title="Pipeline" subtitle="Sales pipeline overview" showTimeRange={false} />
+        <Header
+          title="Pipeline"
+          subtitle="Sales pipeline overview"
+          showTimeRange={false}
+          refreshConfig={{ onRefresh: refresh, refreshing: loading, lastUpdated: lastFetchedAt }}
+        />
           <div style={{ 
             padding: SPACING[6], 
             display: 'flex', 
@@ -301,64 +439,13 @@ export default function PipelinePage() {
   const wonMaterials = extractMaterialsFromCards(wonCards, customFields);
   const lostMaterials = extractMaterialsFromCards(lostCards, customFields);
 
-  // Tim's Action Items: Need Quote + Estimating — show if overdue OR has Urgent label
-  const timsItems: ActionItem[] = [];
-  [...needQuoteCards, ...estimatingCards].forEach(card => {
-    const columnName = getCardListName(card, lists);
-    const trelloUrl = `https://trello.com/c/${card.shortLink}`;
-    const daysOverdue = calculateDaysOverdue(card);
-    const isUrgent = hasUrgentLabel(card);
-
-    if (daysOverdue > 0) {
-      timsItems.push({
-        cardName: card.name,
-        columnName,
-        reason: `${daysOverdue} days over`,
-        color: 'red',
-        trelloUrl
-      });
-    } else if (isUrgent) {
-      timsItems.push({
-        cardName: card.name,
-        columnName,
-        reason: 'Urgent',
-        color: 'orange',
-        trelloUrl
-      });
-    }
-  });
-  timsItems.sort((a, b) => (a.color === 'red' ? -1 : b.color === 'red' ? 1 : 0));
-
-  // Omiah's Action Items: Follow-Up + Estimate Review — accurate days in column from list-move actions
-  const omiahsItems: ActionItem[] = [];
-  followUpCards.forEach((card) => {
-    const daysStale = getDaysInColumn(card, cardDaysInColumn);
-    if (daysStale >= 3) {
-      omiahsItems.push({
-        cardName: card.name,
-        columnName: 'Follow-Up',
-        reason: `${daysStale} days stale`,
-        color: daysStale >= 5 ? 'red' : 'yellow',
-        trelloUrl: `https://trello.com/c/${card.shortLink}`
-      });
-    }
-  });
-  estimateReviewCards.forEach((card) => {
-    const daysInColumn = getDaysInColumn(card, cardDaysInColumn);
-    if (daysInColumn >= 1) {
-      omiahsItems.push({
-        cardName: card.name,
-        columnName: 'Estimate Review',
-        reason: daysInColumn >= 3 ? `${daysInColumn} days` : `${daysInColumn} day${daysInColumn > 1 ? 's' : ''}`,
-        color: daysInColumn >= 3 ? 'red' : 'yellow',
-        trelloUrl: `https://trello.com/c/${card.shortLink}`
-      });
-    }
-  });
-  omiahsItems.sort((a, b) => {
-    const order = { red: 0, yellow: 1, orange: 2 };
-    return (order[a.color] ?? 2) - (order[b.color] ?? 2);
-  });
+  const timTiers = computeTimTiers(needQuoteCards, estimatingCards, lists);
+  const omiahTiers = computeOmiahTiers(
+    followUpCards,
+    estimateReviewCards,
+    cardDaysInColumn,
+    lists
+  );
 
   return (
     <div style={{ 
@@ -403,8 +490,17 @@ export default function PipelinePage() {
         }} />
       </Modal>
 
-      <Header title="Pipeline" subtitle="Sales pipeline overview" showTimeRange={false} />
-        
+      <Header
+        title="Pipeline"
+        subtitle="Sales pipeline overview"
+        showTimeRange={false}
+        refreshConfig={{
+          onRefresh: refresh,
+          refreshing: loading,
+          lastUpdated: lastFetchedAt,
+        }}
+      />
+
         <div style={{ padding: SPACING[6] }}>
           {/* Page Title */}
           <div style={{ marginBottom: SPACING.sectionMargin }}>
@@ -489,15 +585,13 @@ export default function PipelinePage() {
             gap: SPACING.gridGap, 
             marginBottom: SPACING.sectionMargin 
           }}>
-            <ActionItemsCard
+            <ActionItemsCardCompact
               title="TIM'S ACTION ITEMS"
-              items={timsItems}
-              emptyMessage="All caught up!"
+              tiers={timTiers}
             />
-            <ActionItemsCard
+            <ActionItemsCardCompact
               title="OMIAH'S ACTION ITEMS"
-              items={omiahsItems}
-              emptyMessage="All caught up!"
+              tiers={omiahTiers}
             />
             <TimeInColumnCard
               cards={cards}

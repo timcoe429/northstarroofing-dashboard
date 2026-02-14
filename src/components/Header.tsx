@@ -4,6 +4,13 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 import { Icons } from './Icons';
 import { useAuthContext, getDisplayName, getInitials } from '@/contexts/AuthContext';
+import { COLORS } from '@/styles/constants';
+
+interface RefreshConfig {
+  onRefresh: () => void;
+  refreshing: boolean;
+  lastUpdated: Date | null;
+}
 
 interface HeaderProps {
   title: string;
@@ -11,9 +18,14 @@ interface HeaderProps {
   showTimeRange?: boolean;
   timeRange?: string;
   onTimeRangeChange?: (range: string) => void;
+  refreshConfig?: RefreshConfig;
 }
 
-export const Header: React.FC<HeaderProps> = ({ title, subtitle, showTimeRange = false, timeRange, onTimeRangeChange }) => {
+function formatTime(date: Date): string {
+  return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
+export const Header: React.FC<HeaderProps> = ({ title, subtitle, showTimeRange = false, timeRange, onTimeRangeChange, refreshConfig }) => {
   const router = useRouter();
   const { user, signOut } = useAuthContext();
 
@@ -39,6 +51,41 @@ export const Header: React.FC<HeaderProps> = ({ title, subtitle, showTimeRange =
         <p style={{ margin: '2px 0 0', fontSize: 12, color: '#64748b' }}>{subtitle}</p>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        {/* Refresh button + Last updated - only show if refreshConfig provided */}
+        {refreshConfig && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button
+              onClick={refreshConfig.onRefresh}
+              disabled={refreshConfig.refreshing}
+              style={{
+                background: COLORS.gray50,
+                border: `1px solid ${COLORS.gray200}`,
+                borderRadius: 6,
+                padding: 6,
+                color: COLORS.navy,
+                cursor: refreshConfig.refreshing ? 'wait' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              title="Refresh data"
+            >
+              <span
+                style={{
+                  display: 'inline-flex',
+                  animation: refreshConfig.refreshing ? 'spin 1s linear infinite' : 'none',
+                }}
+              >
+                <Icons.Refresh />
+              </span>
+            </button>
+            {refreshConfig.lastUpdated && (
+              <span style={{ fontSize: 11, color: COLORS.gray500 }}>
+                Last updated: {formatTime(refreshConfig.lastUpdated)}
+              </span>
+            )}
+          </div>
+        )}
         {/* Time Range Dropdown - only show if enabled */}
         {showTimeRange && timeRange && onTimeRangeChange && (
           <select
